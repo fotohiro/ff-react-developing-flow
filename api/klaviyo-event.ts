@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             profile: {
               data: {
                 type: "profile",
-                attributes: { email, ...properties },
+                attributes: { email },
               },
             },
             properties,
