@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const storefrontToken = process.env.SHOPIFY_STOREFRONT_TOKEN;
-  const storeDomain = process.env.SHOPIFY_STORE_DOMAIN || "fotofoto.io";
+  const storeDomain = process.env.SHOPIFY_STORE_DOMAIN || "foto-foto-foto.myshopify.com";
   const scansVariantId = process.env.SCANS_VARIANT_ID;
   const printsVariantId = process.env.PRINTS_VARIANT_ID;
 
