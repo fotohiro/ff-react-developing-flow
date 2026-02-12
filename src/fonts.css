@@ -1,0 +1,15 @@
+@font-face {
+  font-family: "AcidGrotesk-Normal";
+  src: url("/fonts/AcidGrotesk-Normal.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "AwesomeSerif-ExtraTall";
+  src: url("/fonts/AwesomeSerif-ExtraTall.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

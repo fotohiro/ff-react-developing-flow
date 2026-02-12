@@ -1,0 +1,46 @@
+:root {
+  /* Typography */
+  --font-headline: "AwesomeSerif-ExtraTall", Georgia, serif;
+  --font-body: "AcidGrotesk-Normal", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Colors — from Figma artboards (source of truth) */
+  --color-text: #1a1a1a;
+  --color-text-secondary: #919191;
+  --color-text-muted: #818181;
+  --color-text-placeholder: #818181;
+  --color-bg: #ffffff;
+  --color-surface: #f5f5f5;
+  --color-border: #818181;
+  --color-border-light: #e7e9eb;
+  --color-selected: #fdffa4;
+  --color-cta: #c8e7ff;
+  --color-cta-border: #000000;
+  --color-disabled: #e1e1e1;
+  --color-success: #78ea59;
+  --color-error: #ee5555;
+  --color-progress-filled: #4d4d4d;
+  --color-progress-empty: #e7e9eb;
+  --color-hint-bg: #f5f5f5;
+
+  /* Spacing */
+  --page-max-width: 402px;
+  --page-padding: 27px;
+  --content-width: 344px;
+
+  /* Radii */
+  --radius-card: 12px;
+  --radius-input: 12px;
+  --radius-button: 100px;
+  --radius-badge: 100px;
+
+  /* Sizing */
+  --progress-height: 4px;
+  --progress-gap: 6px;
+  --button-height: 63px;
+  --input-height: 82px;
+  --card-height: 92px;
+
+  /* Transitions */
+  --transition-fast: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
