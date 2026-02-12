@@ -51,9 +51,13 @@ export default function ConfirmStep({
 
       // Same-tab redirect to Shopify checkout
       window.location.href = checkoutUrl;
-    } catch {
-      // In dev/stub mode, show alert
-      alert("Cart creation stubbed — would redirect to Shopify checkout.");
+    } catch (err) {
+      console.error("Checkout error:", err);
+      alert(
+        err instanceof Error
+          ? `Checkout failed: ${err.message}`
+          : "Something went wrong creating checkout. Please try again."
+      );
       setLoading(false);
     }
   };

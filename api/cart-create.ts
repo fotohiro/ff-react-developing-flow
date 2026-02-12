@@ -24,11 +24,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const printsVariantId = process.env.PRINTS_VARIANT_ID;
 
   if (!storefrontToken || !scansVariantId || !printsVariantId) {
-    // Stub mode
-    console.log(`[STUB] Cart create:`, { format, cid, email, labelUrl, labelToken });
-    return res.status(200).json({
-      checkoutUrl: `https://${storeDomain}/checkout?stub=true`,
-      stub: true,
+    const missing = [
+      !storefrontToken && "SHOPIFY_STOREFRONT_TOKEN",
+      !scansVariantId && "SCANS_VARIANT_ID",
+      !printsVariantId && "PRINTS_VARIANT_ID",
+    ].filter(Boolean);
+    console.error(`[CART] Missing env vars: ${missing.join(", ")}`);
+    return res.status(500).json({
+      error: `Server misconfigured — missing: ${missing.join(", ")}`,
     });
   }
 
