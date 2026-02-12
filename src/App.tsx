@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { getParams } from "./lib/params";
 import { trackEvent } from "./lib/api";
 import ProgressBar from "./components/ProgressBar";
@@ -122,6 +123,8 @@ export default function App() {
       <FadeIn stepKey={currentStep}>
         <div style={content}>{renderStep()}</div>
       </FadeIn>
+
+      <SpeedInsights />
     </div>
   );
 }
