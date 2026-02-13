@@ -32,14 +32,7 @@ export default function ConfirmStep({
   const handleCheckout = async () => {
     setLoading(true);
     try {
-      // Fire Klaviyo event
-      trackEvent("Completed Checkout", email, {
-        cid,
-        format,
-        price: info.price,
-      });
-
-      // Create cart
+      // Create cart FIRST — only track event if this succeeds
       const checkoutUrl = await createCart({
         format,
         cid,
@@ -47,6 +40,14 @@ export default function ConfirmStep({
         ...(labelToken
           ? { labelToken }
           : { labelUrl: labelImg ?? undefined }),
+      });
+
+      // Cart created successfully — now fire Klaviyo event
+      trackEvent("Completed Checkout", email, {
+        cid,
+        format,
+        price: info.price,
+        checkout_url: checkoutUrl,
       });
 
       // Same-tab redirect to Shopify checkout
