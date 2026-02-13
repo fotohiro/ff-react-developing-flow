@@ -2,10 +2,10 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 /**
  * POST /api/replacement-label
- * Generate an EasyPost scan-based USPS return label
+ * Generate an EasyPost USPS return label (GroundAdvantage, cheapest)
  *
  * Body: { cid: string, email: string }
- * Returns: { labelUrl: string, trackingNumber: string }
+ * Returns: { labelUrl: string, trackingNumber: string, trackingUrl: string }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -26,12 +26,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       labelUrl: "https://placehold.co/400x200/f0f0f0/999?text=Replacement+Label",
       trackingNumber: "STUB_TRACKING_123",
+      trackingUrl: "#",
       stub: true,
     });
   }
 
   try {
-    // 1. Create EasyPost shipment with return label
+    // 1. Create EasyPost return shipment
+    //    - to_address = FOTOFOTO lab (destination for returns)
+    //    - from_address = generic sender (customer drops off at any USPS)
+    //    - is_return = true swaps to/from on the label automatically
+    console.log(`[LABEL] Creating return label for cid=${cid}, email=${email}`);
+
     const easyPostRes = await fetch("https://api.easypost.com/v2/shipments", {
       method: "POST",
       headers: {
@@ -42,7 +48,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         shipment: {
           is_return: true,
           to_address: {
-            // FOTOFOTO lab address — replace with actual
             company: "FOTO FOTO",
             street1: "63 Flushing Ave",
             street2: "Bldg 131, Ste 30",
@@ -50,42 +55,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             state: "NY",
             zip: "11205",
             country: "US",
+            phone: "3479697855",
           },
           from_address: {
-            // Will be overridden by customer when they drop off
-            name: "Customer",
-            street1: "TBD",
-            city: "TBD",
+            // Generic sender address for rating purposes.
+            // Customer drops the parcel at any USPS location;
+            // the from_address on a return label doesn't restrict drop-off.
+            name: "Customer Return",
+            street1: "1 Main St",
+            city: "New York",
             state: "NY",
             zip: "10001",
             country: "US",
           },
           parcel: {
-            weight: 8, // ounces
+            weight: 8,  // ounces — single-use camera + mailer
             length: 6,
             width: 4,
             height: 3,
           },
-          carrier_accounts: [], // Uses default
-          service: "First",
+          options: {
+            label_format: "PNG",
+          },
         },
       }),
     });
 
     if (!easyPostRes.ok) {
       const errorText = await easyPostRes.text();
-      console.error("EasyPost API error:", errorText);
-      return res.status(502).json({ error: "EasyPost API error" });
+      console.error("[LABEL] EasyPost shipment error:", errorText);
+      return res.status(502).json({
+        error: "EasyPost API error",
+        detail: errorText,
+      });
     }
 
     const shipment = await easyPostRes.json();
+    console.log(
+      `[LABEL] Shipment ${shipment.id} created, ${shipment.rates?.length ?? 0} rates`
+    );
 
-    // 2. Buy the cheapest rate
-    const rate = shipment.rates?.[0];
-    if (!rate) {
-      return res.status(502).json({ error: "No rates available" });
+    // 2. Filter to USPS rates only, pick cheapest
+    const uspsRates = (shipment.rates ?? [])
+      .filter((r: any) => r.carrier === "USPS")
+      .sort((a: any, b: any) => parseFloat(a.rate) - parseFloat(b.rate));
+
+    if (uspsRates.length === 0) {
+      console.error("[LABEL] No USPS rates returned:", shipment.rates);
+      return res.status(502).json({ error: "No USPS rates available" });
     }
 
+    const cheapest = uspsRates[0];
+    console.log(
+      `[LABEL] Buying ${cheapest.service} @ $${cheapest.rate} (${cheapest.est_delivery_days}d)`
+    );
+
+    // 3. Buy the label
     const buyRes = await fetch(
       `https://api.easypost.com/v2/shipments/${shipment.id}/buy`,
       {
@@ -94,24 +119,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({ rate: { id: rate.id } }),
+        body: JSON.stringify({ rate: { id: cheapest.id } }),
       }
     );
 
     if (!buyRes.ok) {
       const errorText = await buyRes.text();
-      console.error("EasyPost buy error:", errorText);
-      return res.status(502).json({ error: "Failed to purchase label" });
+      console.error("[LABEL] EasyPost buy error:", errorText);
+      return res.status(502).json({
+        error: "Failed to purchase label",
+        detail: errorText,
+      });
     }
 
     const purchased = await buyRes.json();
+    const labelUrl = purchased.postage_label?.label_url;
+    const trackingNumber = purchased.tracking_code;
+    const trackingUrl = purchased.tracker?.public_url;
+
+    console.log(
+      `[LABEL] Label purchased — tracking: ${trackingNumber}, url: ${labelUrl}`
+    );
 
     return res.status(200).json({
-      labelUrl: purchased.postage_label?.label_url,
-      trackingNumber: purchased.tracking_code,
+      labelUrl,
+      trackingNumber,
+      trackingUrl: trackingUrl ?? null,
     });
   } catch (err) {
-    console.error("Replacement label generation failed:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("[LABEL] Replacement label generation failed:", err);
+    return res.status(500).json({
+      error: "Internal server error",
+      detail: err instanceof Error ? err.message : String(err),
+    });
   }
 }

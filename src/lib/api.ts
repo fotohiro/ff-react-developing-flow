@@ -22,7 +22,7 @@ export async function trackEvent(
 export async function requestReplacementLabel(
   cid: string,
   email: string
-): Promise<{ labelUrl: string; trackingNumber: string }> {
+): Promise<{ labelUrl: string; trackingNumber: string; trackingUrl?: string }> {
   try {
     const res = await fetch(`${API_BASE}/replacement-label`, {
       method: "POST",
@@ -30,9 +30,9 @@ export async function requestReplacementLabel(
       body: JSON.stringify({ cid, email }),
     });
 
-    if (!res.ok) throw new Error("API returned error");
-
     const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "API returned error");
 
     // If the API returned a stub response, it still has valid shape
     return data;
@@ -77,7 +77,7 @@ export async function createCart(payload: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Failed to create cart");
   const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Failed to create cart");
   return data.checkoutUrl;
 }
