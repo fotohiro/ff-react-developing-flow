@@ -18,16 +18,27 @@ export async function trackEvent(
   }
 }
 
+/** Customer address for return label generation */
+export interface CustomerAddress {
+  name: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
 /** Request a replacement return label */
 export async function requestReplacementLabel(
   cid: string,
-  email: string
+  email: string,
+  address: CustomerAddress
 ): Promise<{ labelUrl: string; trackingNumber: string; trackingUrl?: string }> {
   try {
     const res = await fetch(`${API_BASE}/replacement-label`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cid, email }),
+      body: JSON.stringify({ cid, email, address }),
     });
 
     const data = await res.json();

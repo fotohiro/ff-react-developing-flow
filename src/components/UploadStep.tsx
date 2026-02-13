@@ -2,6 +2,16 @@ import { useRef, useState, type CSSProperties } from "react";
 import Button from "./Button";
 import BackButton from "./BackButton";
 import { requestReplacementLabel } from "../lib/api";
+import type { CustomerAddress } from "../lib/api";
+
+const US_STATES = [
+  "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
+  "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+  "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+  "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+  "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
+  "DC","PR","VI","GU","AS","MP",
+];
 
 interface Props {
   cid: string;
@@ -23,8 +33,29 @@ export default function UploadStep({
   const fileRef = useRef<HTMLInputElement>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Track how the label was obtained
   const [labelSource, setLabelSource] = useState<"camera" | "replacement" | null>(null);
+
+  // Address form state
+  const [showForm, setShowForm] = useState(false);
+  const [address, setAddress] = useState<CustomerAddress>({
+    name: "",
+    street1: "",
+    street2: "",
+    city: "",
+    state: "",
+    zip: "",
+  });
+
+  const updateField = (field: keyof CustomerAddress, value: string) => {
+    setAddress((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const isFormValid =
+    address.name.trim().length > 0 &&
+    address.street1.trim().length > 0 &&
+    address.city.trim().length > 0 &&
+    address.state.length > 0 &&
+    /^\d{5}$/.test(address.zip.trim());
 
   const handleFile = (file: File) => {
     const reader = new FileReader();
@@ -53,7 +84,14 @@ export default function UploadStep({
     setGenerating(true);
     setError(null);
     try {
-      const { labelUrl } = await requestReplacementLabel(cid, email);
+      const { labelUrl } = await requestReplacementLabel(cid, email, {
+        ...address,
+        name: address.name.trim(),
+        street1: address.street1.trim(),
+        street2: address.street2?.trim() || undefined,
+        city: address.city.trim(),
+        zip: address.zip.trim(),
+      });
       setLabelSource("replacement");
       onCapture(labelUrl);
     } catch {
@@ -63,21 +101,121 @@ export default function UploadStep({
     }
   };
 
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isFormValid && !generating) handleReplacementLabel();
+  };
+
   const retake = () => {
-    onCapture(""); // Clear
+    onCapture("");
     setLabelSource(null);
     setError(null);
+    setShowForm(false);
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  /* ── Pre-capture state ── */
+  /* ── Pre-capture: Address form ── */
+  if (!labelImg && showForm) {
+    return (
+      <div style={container}>
+        <BackButton onClick={() => setShowForm(false)} />
+        <h1 style={headline}>Generate a new{"\n"}return label.</h1>
+
+        {generating ? (
+          <div style={{ ...dropZone, height: "auto", minHeight: 168, border: "none" }}>
+            <div style={spinnerWrap}>
+              <div style={spinner} />
+              <span style={spinnerText}>Generating your label...</span>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleFormSubmit} style={formWrap}>
+            <input
+              type="text"
+              placeholder="Full name"
+              autoComplete="name"
+              value={address.name}
+              onChange={(e) => updateField("name", e.target.value)}
+              style={formInput}
+            />
+            <input
+              type="text"
+              placeholder="Street address"
+              autoComplete="address-line1"
+              value={address.street1}
+              onChange={(e) => updateField("street1", e.target.value)}
+              style={formInput}
+            />
+            <input
+              type="text"
+              placeholder="Apt / Suite (optional)"
+              autoComplete="address-line2"
+              value={address.street2 ?? ""}
+              onChange={(e) => updateField("street2", e.target.value)}
+              style={formInput}
+            />
+            <div style={formRow}>
+              <input
+                type="text"
+                placeholder="City"
+                autoComplete="address-level2"
+                value={address.city}
+                onChange={(e) => updateField("city", e.target.value)}
+                style={{ ...formInput, flex: 1 }}
+              />
+              <select
+                value={address.state}
+                onChange={(e) => updateField("state", e.target.value)}
+                autoComplete="address-level1"
+                style={{
+                  ...formInput,
+                  width: 80,
+                  color: address.state ? "var(--color-text)" : "var(--color-text-placeholder)",
+                }}
+              >
+                <option value="" disabled>
+                  State
+                </option>
+                {US_STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="Zip"
+                autoComplete="postal-code"
+                maxLength={5}
+                value={address.zip}
+                onChange={(e) =>
+                  updateField("zip", e.target.value.replace(/\D/g, "").slice(0, 5))
+                }
+                style={{ ...formInput, width: 86 }}
+              />
+            </div>
+
+            {error && <p style={errorMsg}>{error}</p>}
+
+            <div style={{ marginTop: 14 }}>
+              <Button type="submit" disabled={!isFormValid}>
+                Generate Label
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    );
+  }
+
+  /* ── Pre-capture: Photo drop zone (default) ── */
   if (!labelImg) {
     return (
       <div style={container}>
         <BackButton onClick={onBack} />
         <h1 style={headline}>Photo your return label.</h1>
 
-        {/* Drop zone */}
         <button
           type="button"
           style={dropZone}
@@ -85,17 +223,8 @@ export default function UploadStep({
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
         >
-          {generating ? (
-            <div style={spinnerWrap}>
-              <div style={spinner} />
-              <span style={spinnerText}>Generating new label...</span>
-            </div>
-          ) : (
-            <>
-              <span style={dropLabel}>Tap to take photo.</span>
-              <span style={dropSub}>or drop an image</span>
-            </>
-          )}
+          <span style={dropLabel}>Tap to take photo.</span>
+          <span style={dropSub}>or drop an image</span>
         </button>
 
         <input
@@ -107,27 +236,19 @@ export default function UploadStep({
           style={{ display: "none" }}
         />
 
-        {/* Hint pill */}
         <div style={hintPill}>
           <span>💡</span>
           <span style={hintText}>It's folded inside your return mailer</span>
         </div>
 
-        {/* Error message */}
-        {error && <p style={errorMsg}>{error}</p>}
-
-        {/* Can't find it? */}
         <button
           type="button"
           style={cantFindBtn}
-          onClick={handleReplacementLabel}
-          disabled={generating}
+          onClick={() => setShowForm(true)}
         >
-          {error ? "Try again" : "Can't find it?"}
+          Can't find it?
         </button>
-        {!error && !generating && (
-          <p style={cantFindHint}>We'll generate a new one.</p>
-        )}
+        <p style={cantFindHint}>We'll generate a new one.</p>
       </div>
     );
   }
@@ -138,7 +259,6 @@ export default function UploadStep({
       <BackButton onClick={onBack} />
       <h1 style={headline}>Photo your return label.</h1>
 
-      {/* Image preview */}
       <div style={previewWrap}>
         <img src={labelImg} alt="Return label" style={previewImg} />
         <div style={capturedBadge}>
@@ -146,14 +266,12 @@ export default function UploadStep({
         </div>
       </div>
 
-      {/* Email confirmation — only for replacement labels */}
       {labelSource === "replacement" && (
         <p style={emailSentText}>
           A copy has also been sent to your email.
         </p>
       )}
 
-      {/* Retake */}
       <button type="button" style={retakeBtn} onClick={retake}>
         Retake
       </button>
@@ -212,12 +330,13 @@ const dropSub: CSSProperties = {
   color: "var(--color-text-muted)",
 };
 
-/* Spinner for replacement label generation */
+/* Spinner */
 const spinnerWrap: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   gap: 12,
+  padding: "40px 0",
 };
 
 const spinner: CSSProperties = {
@@ -255,7 +374,6 @@ const hintText: CSSProperties = {
   color: "var(--color-text-muted)",
 };
 
-/* Can't find it hint */
 const cantFindHint: CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: 14,
@@ -264,16 +382,14 @@ const cantFindHint: CSSProperties = {
   marginTop: 6,
 };
 
-/* Error message */
 const errorMsg: CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: 14,
   color: "var(--color-error)",
   textAlign: "center",
-  marginTop: 16,
+  marginTop: 8,
 };
 
-/* Can't find it link */
 const cantFindBtn: CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: 16,
@@ -285,6 +401,35 @@ const cantFindBtn: CSSProperties = {
   marginTop: 14,
   alignSelf: "center",
   WebkitTapHighlightColor: "transparent",
+};
+
+/* Address form */
+const formWrap: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  width: "100%",
+};
+
+const formInput: CSSProperties = {
+  width: "100%",
+  height: 50,
+  borderRadius: "var(--radius-input)",
+  border: "1px solid var(--color-border)",
+  padding: "0 16px",
+  fontSize: 16,
+  fontFamily: "var(--font-body)",
+  color: "var(--color-text)",
+  backgroundColor: "var(--color-bg)",
+  transition: "border-color var(--transition-fast)",
+  boxSizing: "border-box",
+  WebkitAppearance: "none",
+  appearance: "none" as CSSProperties["appearance"],
+};
+
+const formRow: CSSProperties = {
+  display: "flex",
+  gap: 8,
 };
 
 /* Preview */

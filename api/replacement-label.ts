@@ -4,7 +4,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
  * POST /api/replacement-label
  * Generate an EasyPost USPS return label (GroundAdvantage, cheapest)
  *
- * Body: { cid: string, email: string }
+ * Body: { cid: string, email: string, address: { name, street1, street2?, city, state, zip } }
  * Returns: { labelUrl: string, trackingNumber: string, trackingUrl: string }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -12,10 +12,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { cid, email } = req.body;
+  const { cid, email, address } = req.body;
 
   if (!cid || !email) {
     return res.status(400).json({ error: "Missing cid or email" });
+  }
+
+  if (!address?.name || !address?.street1 || !address?.city || !address?.state || !address?.zip) {
+    return res.status(400).json({ error: "Missing required address fields" });
   }
 
   const apiKey = process.env.EASYPOST_API_KEY;
@@ -58,14 +62,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             phone: "2012927506",
           },
           from_address: {
-            // Generic sender address for rating purposes.
-            // Customer drops the parcel at any USPS location;
-            // the from_address on a return label doesn't restrict drop-off.
-            name: "Customer Return",
-            street1: "1 Main St",
-            city: "New York",
-            state: "NY",
-            zip: "10001",
+            name: address.name,
+            street1: address.street1,
+            ...(address.street2 ? { street2: address.street2 } : {}),
+            city: address.city,
+            state: address.state,
+            zip: address.zip,
             country: "US",
           },
           parcel: {
