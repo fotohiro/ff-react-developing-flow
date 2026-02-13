@@ -64,21 +64,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   `;
 
+  const attributes = [
+    { key: "camera_id", value: cid },
+    { key: "wedding_box_id", value: "" },
+    ...(labelToken
+      ? [{ key: "Return Label", value: labelToken }]
+      : labelUrl
+        ? [{ key: "Return Label", value: labelUrl }]
+        : []),
+  ].filter((attr) => attr.value);
+
+  // #region agent log
+  console.log("[CART][DEBUG] Attributes after filtering empty values:", JSON.stringify(attributes));
+  // #endregion
+
   const variables = {
     input: {
       lines: [
         {
           merchandiseId: `gid://shopify/ProductVariant/${variantId}`,
           quantity: 1,
-          attributes: [
-            { key: "camera_id", value: cid },
-            { key: "wedding_box_id", value: "" },
-            ...(labelToken
-              ? [{ key: "Return Label", value: labelToken }]
-              : labelUrl
-                ? [{ key: "Return Label", value: labelUrl }]
-                : []),
-          ],
+          ...(attributes.length > 0 ? { attributes } : {}),
         },
       ],
     },
