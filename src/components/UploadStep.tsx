@@ -300,9 +300,11 @@ export default function UploadStep({
         </>
       )}
 
-      <button type="button" style={retakeBtn} onClick={retake}>
-        Retake
-      </button>
+      {labelSource !== "replacement" && (
+        <button type="button" style={retakeBtn} onClick={retake}>
+          Retake
+        </button>
+      )}
 
       <Button onClick={onNext}>Continue</Button>
     </div>
