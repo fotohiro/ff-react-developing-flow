@@ -59,9 +59,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     { key: "camera_id", value: cid },
     ...(weddingBoxId ? [{ key: "wedding_box_id", value: weddingBoxId }] : []),
     ...(labelToken
-      ? [{ key: "Return Label", value: labelToken }]
+      ? [{ key: "_Return Label", value: labelToken }]
       : labelUrl
-        ? [{ key: "Return Label", value: labelUrl }]
+        ? [{ key: "_Return Label", value: labelUrl }]
         : []),
   ];
 
