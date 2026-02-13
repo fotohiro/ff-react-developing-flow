@@ -519,6 +519,7 @@ const emailNotice: CSSProperties = {
   color: "var(--color-text-muted)",
   textAlign: "center",
   marginTop: 14,
+  marginBottom: 24,
 };
 
 const retakeBtn: CSSProperties = {
