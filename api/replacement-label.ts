@@ -49,13 +49,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           is_return: true,
           to_address: {
             company: "FOTO FOTO",
-            street1: "63 Flushing Ave",
-            street2: "Bldg 131, Ste 30",
+            street1: "63 Flushing Avenue",
+            street2: "Building 280, Suite 414",
             city: "Brooklyn",
             state: "NY",
             zip: "11205",
             country: "US",
-            phone: "3479697855",
+            phone: "2012927506",
           },
           from_address: {
             // Generic sender address for rating purposes.
