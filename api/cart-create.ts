@@ -38,6 +38,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const variantId =
     format === "scans" ? scansVariantId : printsVariantId;
 
+  // #region agent log
+  console.log("[CART][DEBUG] Raw env values:", {
+    storeDomain,
+    storefrontTokenPrefix: storefrontToken?.slice(0, 8) + "...",
+    scansVariantId,
+    printsVariantId,
+    selectedVariantId: variantId,
+    fullMerchandiseId: `gid://shopify/ProductVariant/${variantId}`,
+    format,
+  });
+  // #endregion
+
   const query = `
     mutation cartCreate($input: CartInput!) {
       cartCreate(input: $input) {
@@ -73,8 +85,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   try {
+    // #region agent log — diagnostic: can the Storefront API see this variant at all?
+    const diagQuery = `
+      query checkVariant($id: ID!) {
+        node(id: $id) {
+          ... on ProductVariant {
+            id
+            title
+            availableForSale
+            product { title handle }
+          }
+        }
+      }
+    `;
+    const apiUrl = `https://${storeDomain}/api/2024-10/graphql.json`;
+    const diagRes = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Shopify-Storefront-Private-Token": storefrontToken,
+      },
+      body: JSON.stringify({
+        query: diagQuery,
+        variables: { id: `gid://shopify/ProductVariant/${variantId}` },
+      }),
+    });
+    const diagData = await diagRes.json();
+    console.log("[CART][DEBUG] Variant lookup result:", JSON.stringify(diagData, null, 2));
+    console.log("[CART][DEBUG] API URL used:", apiUrl);
+    // #endregion
+
     const response = await fetch(
-      `https://${storeDomain}/api/2024-10/graphql.json`,
+      apiUrl,
       {
         method: "POST",
         headers: {

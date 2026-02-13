@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { Analytics } from "@vercel/analytics/react";
 import { getParams } from "./lib/params";
 import { trackEvent } from "./lib/api";
 import ProgressBar from "./components/ProgressBar";
@@ -52,7 +53,7 @@ export default function App() {
   };
 
   const handleUploadNext = () => {
-    trackEvent("Uploaded Label", email, { cid, email, label_url: labelImg });
+    trackEvent("Uploaded Label", email, { cid, email, has_label: !!labelImg });
     goNext();
   };
 
@@ -129,6 +130,7 @@ export default function App() {
       </FadeIn>
 
       <SpeedInsights />
+      <Analytics />
     </div>
   );
 }
