@@ -273,6 +273,10 @@ export default function UploadStep({
         </div>
       </div>
 
+      {labelSource === "replacement" && (
+        <p style={emailNotice}>A copy will be sent to your email.</p>
+      )}
+
       <button type="button" style={retakeBtn} onClick={retake}>
         Retake
       </button>
@@ -464,6 +468,14 @@ const capturedBadge: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+};
+
+const emailNotice: CSSProperties = {
+  fontFamily: "var(--font-body)",
+  fontSize: 14,
+  color: "var(--color-text-secondary)",
+  textAlign: "center",
+  marginTop: 12,
 };
 
 const retakeBtn: CSSProperties = {
