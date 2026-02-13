@@ -26,6 +26,7 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [format, setFormat] = useState<FormatType | null>(null);
   const [labelImg, setLabelImg] = useState<string | null>(null);
+  const [labelSource, setLabelSource] = useState<"camera" | "replacement" | null>(null);
 
   const currentStep = steps[stepIdx];
 
@@ -57,6 +58,7 @@ export default function App() {
 
   const handleCapture = (dataUrl: string) => {
     setLabelImg(dataUrl || null);
+    if (!dataUrl) setLabelSource(null);
   };
 
   /* Render current step */
@@ -87,6 +89,7 @@ export default function App() {
             email={email}
             labelImg={labelImg}
             onCapture={handleCapture}
+            onLabelSourceChange={setLabelSource}
             onNext={handleUploadNext}
             onBack={goBack}
           />
@@ -99,6 +102,7 @@ export default function App() {
             format={format!}
             labelImg={labelImg}
             labelToken={lt}
+            labelSource={labelSource}
             onBack={goBack}
           />
         );

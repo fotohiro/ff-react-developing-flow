@@ -18,6 +18,7 @@ interface Props {
   email: string;
   labelImg: string | null;
   onCapture: (dataUrl: string) => void;
+  onLabelSourceChange: (source: "camera" | "replacement" | null) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -27,13 +28,19 @@ export default function UploadStep({
   email,
   labelImg,
   onCapture,
+  onLabelSourceChange,
   onNext,
   onBack,
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [labelSource, setLabelSource] = useState<"camera" | "replacement" | null>(null);
+  const [labelSource, setLabelSourceLocal] = useState<"camera" | "replacement" | null>(null);
+
+  const setLabelSource = (source: "camera" | "replacement" | null) => {
+    setLabelSourceLocal(source);
+    onLabelSourceChange(source);
+  };
 
   // Address form state
   const [showForm, setShowForm] = useState(false);
@@ -266,12 +273,6 @@ export default function UploadStep({
         </div>
       </div>
 
-      {labelSource === "replacement" && (
-        <p style={emailSentText}>
-          A copy has also been sent to your email.
-        </p>
-      )}
-
       <button type="button" style={retakeBtn} onClick={retake}>
         Retake
       </button>
@@ -463,14 +464,6 @@ const capturedBadge: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-};
-
-const emailSentText: CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontSize: 14,
-  color: "var(--color-text-secondary)",
-  textAlign: "center",
-  marginTop: 12,
 };
 
 const retakeBtn: CSSProperties = {

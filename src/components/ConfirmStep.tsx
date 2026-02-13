@@ -10,6 +10,7 @@ interface Props {
   format: FormatType;
   labelImg: string | null;
   labelToken: string | null;
+  labelSource: "camera" | "replacement" | null;
   onBack: () => void;
 }
 
@@ -24,6 +25,7 @@ export default function ConfirmStep({
   format,
   labelImg,
   labelToken,
+  labelSource,
   onBack,
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -48,6 +50,9 @@ export default function ConfirmStep({
         format,
         price: info.price,
         checkout_url: checkoutUrl,
+        ...(labelSource === "replacement" && labelImg
+          ? { labelUrl: labelImg }
+          : {}),
       });
 
       // Same-tab redirect to Shopify checkout
