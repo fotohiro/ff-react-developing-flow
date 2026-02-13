@@ -285,7 +285,7 @@ export default function UploadStep({
     <div style={container}>
       <BackButton onClick={onBack} />
       <h1 style={headline}>
-        {isGenerated ? "Your new\nreturn label." : "Your return label."}
+        {isGenerated ? "Your new label." : "Your return label."}
       </h1>
 
       <div style={isGenerated ? previewWrapGenerated : previewWrap}>
