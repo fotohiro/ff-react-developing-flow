@@ -87,26 +87,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Shopify Storefront API error:", errorText);
-      return res.status(502).json({ error: "Shopify API error" });
+      console.error(`[CART] Shopify API error (${response.status}):`, errorText);
+      return res.status(502).json({
+        error: "Shopify API error",
+        status: response.status,
+        detail: errorText,
+      });
     }
 
     const data = await response.json();
+    console.log("[CART] Shopify response:", JSON.stringify(data, null, 2));
+
     const cart = data.data?.cartCreate?.cart;
     const errors = data.data?.cartCreate?.userErrors;
 
     if (errors?.length > 0) {
-      console.error("Shopify cart errors:", errors);
-      return res.status(400).json({ error: errors[0].message });
+      console.error("[CART] Shopify cart errors:", errors);
+      return res.status(400).json({
+        error: errors[0].message,
+        code: errors[0].code,
+        detail: errors,
+      });
     }
 
     if (!cart?.checkoutUrl) {
-      return res.status(502).json({ error: "No checkout URL returned" });
+      console.error("[CART] No checkout URL in response:", JSON.stringify(data));
+      return res.status(502).json({
+        error: "No checkout URL returned",
+        detail: JSON.stringify(data),
+      });
     }
 
+    console.log("[CART] Checkout URL created:", cart.checkoutUrl);
     return res.status(200).json({ checkoutUrl: cart.checkoutUrl });
   } catch (err) {
-    console.error("Cart creation failed:", err);
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("[CART] Cart creation failed:", err);
+    return res.status(500).json({
+      error: "Internal server error",
+      detail: err instanceof Error ? err.message : String(err),
+    });
   }
 }
