@@ -38,18 +38,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const variantId =
     format === "scans" ? scansVariantId : printsVariantId;
 
-  // #region agent log
-  console.log("[CART][DEBUG] Raw env values:", {
-    storeDomain,
-    storefrontTokenPrefix: storefrontToken?.slice(0, 8) + "...",
-    scansVariantId,
-    printsVariantId,
-    selectedVariantId: variantId,
-    fullMerchandiseId: `gid://shopify/ProductVariant/${variantId}`,
-    format,
-  });
-  // #endregion
-
   const query = `
     mutation cartCreate($input: CartInput!) {
       cartCreate(input: $input) {
@@ -64,7 +52,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   `;
 
-  const attributes = [
+  // Build cart attributes, filtering out anything that would break Shopify
+  const MAX_ATTR_VALUE_LENGTH = 500;
+
+  const rawAttributes = [
     { key: "camera_id", value: cid },
     { key: "wedding_box_id", value: "" },
     ...(labelToken
@@ -72,11 +63,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : labelUrl
         ? [{ key: "Return Label", value: labelUrl }]
         : []),
-  ].filter((attr) => attr.value);
+  ];
 
-  // #region agent log
-  console.log("[CART][DEBUG] Attributes after filtering empty values:", JSON.stringify(attributes));
-  // #endregion
+  const attributes = rawAttributes.filter((attr) => {
+    if (!attr.value) return false;                        // drop empty/falsy
+    if (attr.value.startsWith("data:")) return false;     // safety: drop base64 data URLs (too large for Shopify)
+    if (attr.value.length > MAX_ATTR_VALUE_LENGTH) return false; // safety: drop oversized values
+    return true;
+  });
 
   const variables = {
     input: {
@@ -91,106 +85,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   };
 
   try {
-    // #region agent log — diagnostic: can the Storefront API see this variant at all?
-    const diagQuery = `
-      query checkVariant($id: ID!) {
-        node(id: $id) {
-          ... on ProductVariant {
-            id
-            title
-            availableForSale
-            product { title handle }
-          }
-        }
-      }
-    `;
     const apiUrl = `https://${storeDomain}/api/2024-10/graphql.json`;
-    const diagRes = await fetch(apiUrl, {
+
+    console.log(`[CART] Creating cart: format=${format}, cid=${cid}, attrs=${attributes.length}`);
+
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Shopify-Storefront-Private-Token": storefrontToken,
       },
-      body: JSON.stringify({
-        query: diagQuery,
-        variables: { id: `gid://shopify/ProductVariant/${variantId}` },
-      }),
+      body: JSON.stringify({ query, variables }),
     });
-    const diagData = await diagRes.json();
-    console.log("[CART][DEBUG] Variant lookup result:", JSON.stringify(diagData, null, 2));
-    console.log("[CART][DEBUG] API URL used:", apiUrl);
-
-    // Diagnostic: try minimal cart (no attributes) to isolate the issue
-    const minimalCartRes = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Shopify-Storefront-Private-Token": storefrontToken,
-      },
-      body: JSON.stringify({
-        query,
-        variables: {
-          input: {
-            lines: [{ merchandiseId: `gid://shopify/ProductVariant/${variantId}`, quantity: 1 }],
-          },
-        },
-      }),
-    });
-    const minimalCartData = await minimalCartRes.json();
-    console.log("[CART][DEBUG] Minimal cart (no attrs) result:", JSON.stringify(minimalCartData, null, 2));
-
-    // Diagnostic: try with newer API version
-    const newApiUrl = `https://${storeDomain}/api/2025-01/graphql.json`;
-    const newVersionRes = await fetch(newApiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Shopify-Storefront-Private-Token": storefrontToken,
-      },
-      body: JSON.stringify({
-        query,
-        variables: {
-          input: {
-            lines: [{ merchandiseId: `gid://shopify/ProductVariant/${variantId}`, quantity: 1 }],
-          },
-        },
-      }),
-    });
-    const newVersionData = await newVersionRes.json();
-    console.log("[CART][DEBUG] Minimal cart (API 2025-01) result:", JSON.stringify(newVersionData, null, 2));
-
-    // Diagnostic: try with buyerIdentity
-    const withBuyerRes = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Shopify-Storefront-Private-Token": storefrontToken,
-      },
-      body: JSON.stringify({
-        query,
-        variables: {
-          input: {
-            lines: [{ merchandiseId: `gid://shopify/ProductVariant/${variantId}`, quantity: 1 }],
-            buyerIdentity: { countryCode: "US" },
-          },
-        },
-      }),
-    });
-    const withBuyerData = await withBuyerRes.json();
-    console.log("[CART][DEBUG] Cart with buyerIdentity result:", JSON.stringify(withBuyerData, null, 2));
-    // #endregion
-
-    const response = await fetch(
-      apiUrl,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Shopify-Storefront-Private-Token": storefrontToken,
-        },
-        body: JSON.stringify({ query, variables }),
-      }
-    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -203,7 +109,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const data = await response.json();
-    console.log("[CART] Shopify response:", JSON.stringify(data, null, 2));
 
     const cart = data.data?.cartCreate?.cart;
     const errors = data.data?.cartCreate?.userErrors;

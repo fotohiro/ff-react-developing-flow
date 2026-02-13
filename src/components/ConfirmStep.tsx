@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from "react";
 import Button from "./Button";
 import BackButton from "./BackButton";
-import { createCart, trackEvent } from "../lib/api";
+import { createCart, trackEvent, uploadLabelBase64 } from "../lib/api";
 import type { FormatType } from "./FormatStep";
 
 interface Props {
@@ -34,14 +34,22 @@ export default function ConfirmStep({
   const handleCheckout = async () => {
     setLoading(true);
     try {
-      // Create cart FIRST — only track event if this succeeds
+      // If the label is a camera capture (base64), upload it first to get a hosted URL
+      let hostedLabelUrl: string | undefined;
+      if (!labelToken && labelImg && labelImg.startsWith("data:")) {
+        console.log("[CHECKOUT] Uploading camera-captured label to Blob...");
+        hostedLabelUrl = await uploadLabelBase64(labelImg, cid);
+        console.log("[CHECKOUT] Label uploaded:", hostedLabelUrl);
+      }
+
+      // Create cart — use hosted URL for camera captures, raw URL for generated labels, token for fast-track
       const checkoutUrl = await createCart({
         format,
         cid,
         email,
         ...(labelToken
           ? { labelToken }
-          : { labelUrl: labelImg ?? undefined }),
+          : { labelUrl: hostedLabelUrl ?? labelImg ?? undefined }),
       });
 
       // Cart created successfully — now fire Klaviyo event
@@ -52,7 +60,9 @@ export default function ConfirmStep({
         checkout_url: checkoutUrl,
         ...(labelSource === "replacement" && labelImg
           ? { labelUrl: labelImg }
-          : {}),
+          : labelSource === "camera" && hostedLabelUrl
+            ? { labelUrl: hostedLabelUrl }
+            : {}),
       });
 
       // Same-tab redirect to Shopify checkout

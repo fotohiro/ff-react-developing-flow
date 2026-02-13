@@ -62,15 +62,20 @@ export async function requestReplacementLabel(
   }
 }
 
-/** Upload a label image and get back a CDN URL */
-export async function uploadLabelImage(file: File): Promise<string> {
-  const form = new FormData();
-  form.append("label", file);
+/** Upload a base64 label image to Vercel Blob and get back a permanent CDN URL */
+export async function uploadLabelBase64(
+  imageData: string,
+  cid: string
+): Promise<string> {
   const res = await fetch(`${API_BASE}/upload-label`, {
     method: "POST",
-    body: form,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageData, cid }),
   });
-  if (!res.ok) throw new Error("Failed to upload label image");
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to upload label image");
+  }
   const data = await res.json();
   return data.url;
 }

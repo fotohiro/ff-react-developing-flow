@@ -1,10 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { put } from "@vercel/blob";
 
 /**
  * POST /api/upload-label
- * Upload a label image to storage and return a CDN URL
+ * Upload a base64 label image to Vercel Blob and return a permanent CDN URL.
  *
- * Body: multipart form data with "label" file field
+ * Body: { imageData: string (base64 data URL), cid: string }
  * Returns: { url: string }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -12,27 +13,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const r2AccountId = process.env.R2_ACCOUNT_ID;
-  const r2AccessKey = process.env.R2_ACCESS_KEY;
-  const r2SecretKey = process.env.R2_SECRET_KEY;
-  const r2Bucket = process.env.R2_BUCKET_NAME;
+  const { imageData, cid } = req.body;
 
-  if (!r2AccountId || !r2AccessKey || !r2SecretKey || !r2Bucket) {
-    // Stub mode — return a placeholder URL
-    console.log("[STUB] Label upload — returning placeholder URL");
-    return res.status(200).json({
-      url: "https://placehold.co/400x200/f0f0f0/999?text=Label+Uploaded",
-      stub: true,
-    });
+  if (!imageData || !cid) {
+    return res.status(400).json({ error: "Missing imageData or cid" });
   }
 
-  // TODO: Implement actual R2 upload when keys are provided
-  // 1. Parse multipart form data (use a library like formidable or busboy)
-  // 2. Generate unique filename: labels/{cid}_{timestamp}.jpg
-  // 3. Upload to R2 via S3-compatible API
-  // 4. Return public CDN URL
+  // Validate it's a data URL
+  if (!imageData.startsWith("data:image/")) {
+    return res.status(400).json({ error: "imageData must be a base64 data URL" });
+  }
 
-  return res.status(501).json({
-    error: "R2 upload not yet implemented — add upload logic here",
-  });
+  try {
+    // Strip the data URL prefix: "data:image/jpeg;base64,..." → raw base64
+    const base64Data = imageData.split(",")[1];
+    if (!base64Data) {
+      return res.status(400).json({ error: "Invalid base64 data URL format" });
+    }
+
+    const buffer = Buffer.from(base64Data, "base64");
+
+    // Detect content type from the data URL prefix
+    const mimeMatch = imageData.match(/^data:(image\/\w+);base64/);
+    const contentType = mimeMatch?.[1] ?? "image/jpeg";
+    const ext = contentType === "image/png" ? "png" : "jpg";
+
+    const filename = `labels/${cid}_${Date.now()}.${ext}`;
+
+    console.log(
+      `[UPLOAD] Uploading label for cid=${cid}, size=${buffer.length} bytes, type=${contentType}`
+    );
+
+    const blob = await put(filename, buffer, {
+      access: "public",
+      contentType,
+    });
+
+    console.log(`[UPLOAD] Stored at: ${blob.url}`);
+
+    return res.status(200).json({ url: blob.url });
+  } catch (err) {
+    console.error("[UPLOAD] Label upload failed:", err);
+    return res.status(500).json({
+      error: "Failed to upload label image",
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
