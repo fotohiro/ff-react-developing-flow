@@ -129,7 +129,7 @@ export default function UploadStep({
     return (
       <div style={container}>
         <BackButton onClick={() => setShowForm(false)} />
-        <h1 style={headline}>Generate a new{"\n"}return label.</h1>
+        <h1 style={headline}>Enter your{"\n"}address.</h1>
 
         {generating ? (
           <div style={{ ...dropZone, height: "auto", minHeight: 168, border: "none" }}>
