@@ -58,16 +58,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         {
           merchandiseId: `gid://shopify/ProductVariant/${variantId}`,
           quantity: 1,
+          attributes: [
+            { key: "camera_id", value: cid },
+            { key: "wedding_box_id", value: "" },
+            ...(labelToken
+              ? [{ key: "Return Label", value: labelToken }]
+              : labelUrl
+                ? [{ key: "Return Label", value: labelUrl }]
+                : []),
+          ],
         },
-      ],
-      attributes: [
-        { key: "camera_id", value: cid },
-        { key: "email", value: email },
-        ...(labelToken
-          ? [{ key: "label_token", value: labelToken }]
-          : labelUrl
-            ? [{ key: "label_url", value: labelUrl }]
-            : []),
       ],
     },
   };
