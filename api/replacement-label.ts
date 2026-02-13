@@ -51,7 +51,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify({
         shipment: {
           is_return: true,
+          // With is_return=true, EasyPost swaps to/from on the label.
+          // Pass in "original shipment" orientation:
+          //   to_address = customer (becomes FROM on the return label)
+          //   from_address = FOTOFOTO (becomes TO on the return label)
           to_address: {
+            name: address.name,
+            street1: address.street1,
+            ...(address.street2 ? { street2: address.street2 } : {}),
+            city: address.city,
+            state: address.state,
+            zip: address.zip,
+            country: "US",
+          },
+          from_address: {
             company: "FOTO FOTO",
             street1: "63 Flushing Avenue",
             street2: "Building 280, Suite 414",
@@ -60,15 +73,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             zip: "11205",
             country: "US",
             phone: "2012927506",
-          },
-          from_address: {
-            name: address.name,
-            street1: address.street1,
-            ...(address.street2 ? { street2: address.street2 } : {}),
-            city: address.city,
-            state: address.state,
-            zip: address.zip,
-            country: "US",
           },
           parcel: {
             weight: 8,  // ounces — single-use camera + mailer
