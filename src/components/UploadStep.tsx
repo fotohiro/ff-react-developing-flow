@@ -263,11 +263,26 @@ export default function UploadStep({
     );
   }
 
+  const handlePrint = () => {
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head><title>Return Label</title></head>
+          <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;">
+            <img src="${labelImg}" style="max-width:100%;max-height:100vh;" onload="window.print();window.close();" />
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+    }
+  };
+
   /* ── Post-capture state ── */
   return (
     <div style={container}>
       <BackButton onClick={onBack} />
-      <h1 style={headline}>Photo your return label.</h1>
+      <h1 style={headline}>Your return label.</h1>
 
       <div style={previewWrap}>
         <img src={labelImg} alt="Return label" style={previewImg} />
@@ -277,7 +292,12 @@ export default function UploadStep({
       </div>
 
       {labelSource === "replacement" && (
-        <p style={emailNotice}>A copy will be sent to your email.</p>
+        <>
+          <button type="button" style={printBtn} onClick={handlePrint}>
+            Print Label
+          </button>
+          <p style={emailNotice}>A copy will be sent to your email.</p>
+        </>
       )}
 
       <button type="button" style={retakeBtn} onClick={retake}>
@@ -471,6 +491,20 @@ const capturedBadge: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+};
+
+const printBtn: CSSProperties = {
+  fontFamily: "var(--font-body)",
+  fontSize: 16,
+  color: "var(--color-text)",
+  backgroundColor: "var(--color-surface)",
+  border: "1px solid var(--color-border)",
+  borderRadius: "var(--radius-button)",
+  padding: "10px 24px",
+  cursor: "pointer",
+  alignSelf: "center",
+  marginTop: 14,
+  WebkitTapHighlightColor: "transparent",
 };
 
 const emailNotice: CSSProperties = {
