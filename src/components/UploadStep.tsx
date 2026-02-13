@@ -279,34 +279,41 @@ export default function UploadStep({
   };
 
   /* ── Post-capture state ── */
+  const isGenerated = labelSource === "replacement";
+
   return (
     <div style={container}>
       <BackButton onClick={onBack} />
-      <h1 style={headline}>Your return label.</h1>
+      <h1 style={headline}>
+        {isGenerated ? "Your new\nreturn label." : "Your return label."}
+      </h1>
 
-      <div style={previewWrap}>
-        <img src={labelImg} alt="Return label" style={previewImg} />
-        <div style={capturedBadge}>
-          {labelSource === "replacement" ? "Generated" : "Captured"}
-        </div>
+      <div style={isGenerated ? previewWrapGenerated : previewWrap}>
+        <img
+          src={labelImg}
+          alt="Return label"
+          style={isGenerated ? previewImgGenerated : previewImg}
+        />
       </div>
 
-      {labelSource === "replacement" && (
+      {isGenerated ? (
         <>
           <button type="button" style={printBtn} onClick={handlePrint}>
             Print Label
           </button>
-          <p style={emailNotice}>A copy will be sent to your email.</p>
+          <p style={emailNotice}>💡 A copy will be sent to your email.</p>
+          <div style={{ marginTop: 24 }}>
+            <Button onClick={onNext}>Continue</Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <button type="button" style={retakeBtn} onClick={retake}>
+            Retake
+          </button>
+          <Button onClick={onNext}>Continue</Button>
         </>
       )}
-
-      {labelSource !== "replacement" && (
-        <button type="button" style={retakeBtn} onClick={retake}>
-          Retake
-        </button>
-      )}
-
-      <Button onClick={onNext}>Continue</Button>
     </div>
   );
 }
@@ -462,7 +469,7 @@ const formRow: CSSProperties = {
   gap: 8,
 };
 
-/* Preview */
+/* Preview — camera capture (cropped) */
 const previewWrap: CSSProperties = {
   position: "relative",
   width: "100%",
@@ -478,43 +485,42 @@ const previewImg: CSSProperties = {
   borderRadius: "var(--radius-card)",
 };
 
-const capturedBadge: CSSProperties = {
-  position: "absolute",
-  top: 14,
-  right: 14,
-  backgroundColor: "var(--color-success)",
-  color: "#ffffff",
-  fontFamily: "var(--font-body)",
-  fontSize: 16,
-  height: 34,
-  paddingLeft: 18,
-  paddingRight: 18,
-  borderRadius: "var(--radius-badge)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
+/* Preview — generated label (full image, contained) */
+const previewWrapGenerated: CSSProperties = {
+  width: 174,
+  borderRadius: 12,
+  overflow: "hidden",
+  alignSelf: "center",
+  boxShadow: "inset 0px 4px 4px rgba(0,0,0,0.25)",
+};
+
+const previewImgGenerated: CSSProperties = {
+  width: "100%",
+  height: "auto",
+  display: "block",
+  borderRadius: 12,
 };
 
 const printBtn: CSSProperties = {
   fontFamily: "var(--font-body)",
-  fontSize: 16,
+  fontSize: 20,
   color: "var(--color-text)",
-  backgroundColor: "var(--color-surface)",
-  border: "1px solid var(--color-border)",
+  backgroundColor: "#fdffa4",
+  border: "1px solid var(--color-text-muted)",
   borderRadius: "var(--radius-button)",
-  padding: "10px 24px",
+  padding: "10px 32px",
   cursor: "pointer",
   alignSelf: "center",
-  marginTop: 14,
+  marginTop: 24,
   WebkitTapHighlightColor: "transparent",
 };
 
 const emailNotice: CSSProperties = {
   fontFamily: "var(--font-body)",
-  fontSize: 14,
-  color: "var(--color-text-secondary)",
+  fontSize: 16,
+  color: "var(--color-text-muted)",
   textAlign: "center",
-  marginTop: 12,
+  marginTop: 16,
 };
 
 const retakeBtn: CSSProperties = {
