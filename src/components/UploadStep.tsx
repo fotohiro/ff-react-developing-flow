@@ -302,9 +302,7 @@ export default function UploadStep({
             Print Label
           </button>
           <p style={emailNotice}>💡 A copy will be sent to your email.</p>
-          <div style={{ marginTop: 24 }}>
-            <Button onClick={onNext}>Continue</Button>
-          </div>
+          <Button onClick={onNext}>Continue</Button>
         </>
       ) : (
         <>
@@ -488,7 +486,7 @@ const previewImg: CSSProperties = {
 /* Preview — generated label (full image, contained) */
 const previewWrapGenerated: CSSProperties = {
   width: 174,
-  borderRadius: 12,
+  borderRadius: "var(--radius-card)",
   overflow: "hidden",
   alignSelf: "center",
   boxShadow: "inset 0px 4px 4px rgba(0,0,0,0.25)",
@@ -498,20 +496,20 @@ const previewImgGenerated: CSSProperties = {
   width: "100%",
   height: "auto",
   display: "block",
-  borderRadius: 12,
+  borderRadius: "var(--radius-card)",
 };
 
 const printBtn: CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: 20,
   color: "var(--color-text)",
-  backgroundColor: "#fdffa4",
-  border: "1px solid var(--color-text-muted)",
+  backgroundColor: "var(--color-selected)",
+  border: "1px solid var(--color-border)",
   borderRadius: "var(--radius-button)",
   padding: "10px 32px",
   cursor: "pointer",
   alignSelf: "center",
-  marginTop: 24,
+  marginTop: 14,
   WebkitTapHighlightColor: "transparent",
 };
 
@@ -520,7 +518,7 @@ const emailNotice: CSSProperties = {
   fontSize: 16,
   color: "var(--color-text-muted)",
   textAlign: "center",
-  marginTop: 16,
+  marginTop: 14,
 };
 
 const retakeBtn: CSSProperties = {
