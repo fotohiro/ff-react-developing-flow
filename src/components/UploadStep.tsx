@@ -1,7 +1,7 @@
 import { useRef, useState, type CSSProperties } from "react";
 import Button from "./Button";
 import BackButton from "./BackButton";
-import { requestReplacementLabel } from "../lib/api";
+import { requestReplacementLabel, trackEvent } from "../lib/api";
 import type { CustomerAddress } from "../lib/api";
 
 const US_STATES = [
@@ -101,6 +101,9 @@ export default function UploadStep({
       });
       setLabelSource("replacement");
       onCapture(labelUrl);
+
+      // Fire Klaviyo event for label email flow
+      trackEvent("Label Generated", email, { cid, labelUrl });
     } catch {
       setError("Something went wrong generating your label. Please try again.");
     } finally {
