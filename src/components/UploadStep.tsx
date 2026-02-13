@@ -486,17 +486,15 @@ const previewImg: CSSProperties = {
 /* Preview — generated label (full image, contained) */
 const previewWrapGenerated: CSSProperties = {
   width: 174,
-  borderRadius: "var(--radius-card)",
+  borderRadius: 0,
   overflow: "hidden",
   alignSelf: "center",
-  boxShadow: "inset 0px 4px 4px rgba(0,0,0,0.25)",
 };
 
 const previewImgGenerated: CSSProperties = {
   width: "100%",
   height: "auto",
   display: "block",
-  borderRadius: "var(--radius-card)",
 };
 
 const printBtn: CSSProperties = {
