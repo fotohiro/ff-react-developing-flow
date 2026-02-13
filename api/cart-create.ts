@@ -113,6 +113,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const diagData = await diagRes.json();
     console.log("[CART][DEBUG] Variant lookup result:", JSON.stringify(diagData, null, 2));
     console.log("[CART][DEBUG] API URL used:", apiUrl);
+
+    // Diagnostic: try minimal cart (no attributes) to isolate the issue
+    const minimalCartRes = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Shopify-Storefront-Private-Token": storefrontToken,
+      },
+      body: JSON.stringify({
+        query,
+        variables: {
+          input: {
+            lines: [{ merchandiseId: `gid://shopify/ProductVariant/${variantId}`, quantity: 1 }],
+          },
+        },
+      }),
+    });
+    const minimalCartData = await minimalCartRes.json();
+    console.log("[CART][DEBUG] Minimal cart (no attrs) result:", JSON.stringify(minimalCartData, null, 2));
+
+    // Diagnostic: try with newer API version
+    const newApiUrl = `https://${storeDomain}/api/2025-01/graphql.json`;
+    const newVersionRes = await fetch(newApiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Shopify-Storefront-Private-Token": storefrontToken,
+      },
+      body: JSON.stringify({
+        query,
+        variables: {
+          input: {
+            lines: [{ merchandiseId: `gid://shopify/ProductVariant/${variantId}`, quantity: 1 }],
+          },
+        },
+      }),
+    });
+    const newVersionData = await newVersionRes.json();
+    console.log("[CART][DEBUG] Minimal cart (API 2025-01) result:", JSON.stringify(newVersionData, null, 2));
+
+    // Diagnostic: try with buyerIdentity
+    const withBuyerRes = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Shopify-Storefront-Private-Token": storefrontToken,
+      },
+      body: JSON.stringify({
+        query,
+        variables: {
+          input: {
+            lines: [{ merchandiseId: `gid://shopify/ProductVariant/${variantId}`, quantity: 1 }],
+            buyerIdentity: { countryCode: "US" },
+          },
+        },
+      }),
+    });
+    const withBuyerData = await withBuyerRes.json();
+    console.log("[CART][DEBUG] Cart with buyerIdentity result:", JSON.stringify(withBuyerData, null, 2));
     // #endregion
 
     const response = await fetch(
