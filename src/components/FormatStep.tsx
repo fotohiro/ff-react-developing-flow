@@ -140,7 +140,5 @@ const cardBadge: CSSProperties = {
   color: "var(--color-text)",
   backgroundColor: "var(--color-selected)",
   borderRadius: 6,
-  padding: "4px 7px 3px",
-  display: "inline-flex",
-  alignItems: "center",
+  padding: "2px 7px 4px",
 };
