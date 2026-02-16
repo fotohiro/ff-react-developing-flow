@@ -136,8 +136,11 @@ const cardBadge: CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: 13,
   fontWeight: 600,
+  lineHeight: 1,
   color: "var(--color-text)",
   backgroundColor: "var(--color-selected)",
   borderRadius: 6,
-  padding: "2px 7px",
+  padding: "4px 7px 3px",
+  display: "inline-flex",
+  alignItems: "center",
 };
