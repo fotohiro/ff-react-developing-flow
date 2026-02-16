@@ -6,17 +6,20 @@ export type FormatType = "scans" | "prints";
 
 interface Props {
   format: FormatType | null;
+  discountPct?: number | null;
   onChange: (f: FormatType) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-const OPTIONS: { id: FormatType; label: string; price: string }[] = [
-  { id: "scans", label: "Digital Scans", price: "$9.99" },
-  { id: "prints", label: "Prints + Scans", price: "$16.99" },
+const OPTIONS: { id: FormatType; label: string; price: number }[] = [
+  { id: "scans", label: "Digital Scans", price: 9.99 },
+  { id: "prints", label: "Prints + Scans", price: 16.99 },
 ];
 
-export default function FormatStep({ format, onChange, onNext, onBack }: Props) {
+const fmt = (n: number) => `$${n.toFixed(2)}`;
+
+export default function FormatStep({ format, discountPct, onChange, onNext, onBack }: Props) {
   return (
     <div style={container}>
       <BackButton onClick={onBack} />
@@ -28,6 +31,10 @@ export default function FormatStep({ format, onChange, onNext, onBack }: Props) 
       <div style={cards}>
         {OPTIONS.map((opt) => {
           const selected = format === opt.id;
+          const hasDiscount = discountPct && discountPct > 0;
+          const salePrice = hasDiscount
+            ? opt.price * (1 - discountPct / 100)
+            : null;
           return (
             <button
               key={opt.id}
@@ -42,7 +49,14 @@ export default function FormatStep({ format, onChange, onNext, onBack }: Props) 
               }}
             >
               <span style={cardLabel}>{opt.label}</span>
-              <span style={cardPrice}>{opt.price}</span>
+              {salePrice != null ? (
+                <span style={cardPriceWrap}>
+                  <span style={cardPriceSale}>{fmt(salePrice)}</span>
+                  <span style={cardBadge}>-{discountPct}%</span>
+                </span>
+              ) : (
+                <span style={cardPrice}>{fmt(opt.price)}</span>
+              )}
             </button>
           );
         })}
@@ -104,4 +118,26 @@ const cardPrice: CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: 20,
   color: "var(--color-text)",
+};
+
+const cardPriceWrap: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+const cardPriceSale: CSSProperties = {
+  fontFamily: "var(--font-body)",
+  fontSize: 20,
+  color: "var(--color-text)",
+};
+
+const cardBadge: CSSProperties = {
+  fontFamily: "var(--font-body)",
+  fontSize: 13,
+  fontWeight: 600,
+  color: "var(--color-text)",
+  backgroundColor: "var(--color-selected)",
+  borderRadius: 6,
+  padding: "2px 7px",
 };

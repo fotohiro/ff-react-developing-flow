@@ -12,13 +12,16 @@ interface Props {
   labelToken: string | null;
   labelSource: "camera" | "replacement" | null;
   discountCode?: string | null;
+  discountPct?: number | null;
   onBack: () => void;
 }
 
-const FORMAT_LABELS: Record<FormatType, { label: string; price: string }> = {
-  scans: { label: "Digital Scans", price: "$9.99" },
-  prints: { label: "Prints + Scans", price: "$16.99" },
+const FORMAT_INFO: Record<FormatType, { label: string; price: number }> = {
+  scans: { label: "Digital Scans", price: 9.99 },
+  prints: { label: "Prints + Scans", price: 16.99 },
 };
+
+const fmt = (n: number) => `$${n.toFixed(2)}`;
 
 export default function ConfirmStep({
   cid,
@@ -28,10 +31,13 @@ export default function ConfirmStep({
   labelToken,
   labelSource,
   discountCode,
+  discountPct,
   onBack,
 }: Props) {
   const [loading, setLoading] = useState(false);
-  const info = FORMAT_LABELS[format];
+  const info = FORMAT_INFO[format];
+  const hasDiscount = discountPct && discountPct > 0;
+  const salePrice = hasDiscount ? info.price * (1 - discountPct / 100) : null;
 
   const handleCheckout = async () => {
     setLoading(true);
@@ -59,7 +65,7 @@ export default function ConfirmStep({
       trackEvent("Completed Checkout", email, {
         cid,
         format,
-        price: info.price,
+        price: fmt(salePrice ?? info.price),
         checkout_url: checkoutUrl,
         ...(labelSource === "replacement" && labelImg
           ? { labelUrl: labelImg }
@@ -96,7 +102,14 @@ export default function ConfirmStep({
         <div style={divider} />
         <div style={row}>
           <span style={rowLabel}>{info.label}</span>
-          <span style={rowValue}>{info.price}</span>
+          {salePrice != null ? (
+            <span style={rowValue}>
+              <span style={strikePrice}>{fmt(info.price)}</span>{" "}
+              {fmt(salePrice)}
+            </span>
+          ) : (
+            <span style={rowValue}>{fmt(info.price)}</span>
+          )}
         </div>
         <div style={divider} />
         <div style={row}>
@@ -199,6 +212,12 @@ const thumbImg: CSSProperties = {
   width: "100%",
   height: "100%",
   objectFit: "cover",
+};
+
+const strikePrice: CSSProperties = {
+  textDecoration: "line-through",
+  opacity: 0.5,
+  marginRight: 2,
 };
 
 const subtext: CSSProperties = {

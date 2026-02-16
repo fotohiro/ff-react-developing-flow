@@ -14,7 +14,7 @@ import type { FormatType } from "./components/FormatStep";
 type StepName = "email" | "format" | "upload" | "confirm";
 
 export default function App() {
-  const { cid, lt, discount, email: emailParam } = useMemo(getParams, []);
+  const { cid, lt, discount, discountPct, email: emailParam } = useMemo(getParams, []);
   const hasToken = !!lt;
 
   /* Step configuration — adapts to fast-track vs. standard flow */
@@ -78,6 +78,7 @@ export default function App() {
         return (
           <FormatStep
             format={format}
+            discountPct={discountPct}
             onChange={setFormat}
             onNext={handleFormatNext}
             onBack={goBack}
@@ -105,6 +106,7 @@ export default function App() {
             labelToken={lt}
             labelSource={labelSource}
             discountCode={discount}
+            discountPct={discountPct}
             onBack={goBack}
           />
         );
