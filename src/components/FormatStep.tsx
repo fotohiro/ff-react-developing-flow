@@ -122,7 +122,7 @@ const cardPrice: CSSProperties = {
 
 const cardPriceWrap: CSSProperties = {
   display: "flex",
-  alignItems: "center",
+  alignItems: "baseline",
   gap: 8,
 };
 
@@ -136,9 +136,10 @@ const cardBadge: CSSProperties = {
   fontFamily: "var(--font-body)",
   fontSize: 13,
   fontWeight: 600,
-  lineHeight: 1,
   color: "var(--color-text)",
   backgroundColor: "var(--color-selected)",
   borderRadius: 6,
-  padding: "2px 7px 4px",
+  padding: "2px 7px",
+  position: "relative",
+  top: -1,
 };
