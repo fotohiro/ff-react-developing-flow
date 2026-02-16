@@ -14,7 +14,7 @@ import type { FormatType } from "./components/FormatStep";
 type StepName = "email" | "format" | "upload" | "confirm";
 
 export default function App() {
-  const { cid, lt } = useMemo(getParams, []);
+  const { cid, lt, discount, email: emailParam } = useMemo(getParams, []);
   const hasToken = !!lt;
 
   /* Step configuration — adapts to fast-track vs. standard flow */
@@ -24,7 +24,7 @@ export default function App() {
 
   /* Wizard state */
   const [stepIdx, setStepIdx] = useState(0);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(emailParam ?? "");
   const [format, setFormat] = useState<FormatType | null>(null);
   const [labelImg, setLabelImg] = useState<string | null>(null);
   const [labelSource, setLabelSource] = useState<"camera" | "replacement" | null>(null);
@@ -104,6 +104,7 @@ export default function App() {
             labelImg={labelImg}
             labelToken={lt}
             labelSource={labelSource}
+            discountCode={discount}
             onBack={goBack}
           />
         );

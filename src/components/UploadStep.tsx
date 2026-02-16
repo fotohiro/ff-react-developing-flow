@@ -1,7 +1,8 @@
-import { useRef, useState, type CSSProperties } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 import Button from "./Button";
 import BackButton from "./BackButton";
 import { requestReplacementLabel, trackEvent } from "../lib/api";
+import { isInAppBrowser } from "../lib/isWebView";
 import type { CustomerAddress } from "../lib/api";
 
 const US_STATES = [
@@ -32,6 +33,7 @@ export default function UploadStep({
   onNext,
   onBack,
 }: Props) {
+  const inApp = useMemo(() => isInAppBrowser(), []);
   const fileRef = useRef<HTMLInputElement>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -233,15 +235,21 @@ export default function UploadStep({
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
         >
-          <span style={dropLabel}>Tap to take photo.</span>
-          <span style={dropSub}>or drop an image</span>
+          <span style={dropLabel}>
+            {inApp ? "Select from photos." : "Tap to take photo."}
+          </span>
+          <span style={dropSub}>
+            {inApp
+              ? "Take a photo of your label first, then select it here."
+              : "or drop an image"}
+          </span>
         </button>
 
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
-          capture="environment"
+          {...(!inApp ? { capture: "environment" as const } : {})}
           onChange={handleInputChange}
           style={{ display: "none" }}
         />

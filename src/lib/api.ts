@@ -87,6 +87,7 @@ export async function createCart(payload: {
   email: string;
   labelUrl?: string;
   labelToken?: string;
+  discountCode?: string;
 }): Promise<string> {
   const res = await fetch(`${API_BASE}/cart-create`, {
     method: "POST",

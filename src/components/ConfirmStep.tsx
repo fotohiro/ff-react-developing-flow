@@ -11,6 +11,7 @@ interface Props {
   labelImg: string | null;
   labelToken: string | null;
   labelSource: "camera" | "replacement" | null;
+  discountCode?: string | null;
   onBack: () => void;
 }
 
@@ -26,6 +27,7 @@ export default function ConfirmStep({
   labelImg,
   labelToken,
   labelSource,
+  discountCode,
   onBack,
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -50,6 +52,7 @@ export default function ConfirmStep({
         ...(labelToken
           ? { labelToken }
           : { labelUrl: hostedLabelUrl ?? labelImg ?? undefined }),
+        ...(discountCode ? { discountCode } : {}),
       });
 
       // Cart created successfully — now fire Klaviyo event

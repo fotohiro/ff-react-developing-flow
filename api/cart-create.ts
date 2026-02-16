@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { format, cid, email, labelUrl, labelToken, weddingBoxId } = req.body;
+  const { format, cid, email, labelUrl, labelToken, weddingBoxId, discountCode } = req.body;
 
   if (!format || !cid || !email) {
     return res.status(400).json({ error: "Missing required fields" });
@@ -81,6 +81,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ...(attributes.length > 0 ? { attributes } : {}),
         },
       ],
+      ...(discountCode ? { discountCodes: [discountCode] } : {}),
     },
   };
 
