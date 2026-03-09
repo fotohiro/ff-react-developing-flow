@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { format, cid, email, labelUrl, labelToken, weddingBoxId, printsQty, discountCode } = req.body;
+  const { format, cid, email, labelUrl, labelToken, weddingBoxId, printsQty, extraPrintsQty, discountCode } = req.body;
 
   if (!format || !cid || !email) {
     return res.status(400).json({ error: "Missing required fields" });
@@ -24,6 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const printsVariantId = process.env.PRINTS_VARIANT_ID;
   const wbGalleryVariantId = process.env.WB_SCANS_VARIANT_ID;
   const wbPrintsVariantId = process.env.WB_PRINTS_VARIANT_ID;
+  const extraPrintsVariantId = process.env.EXTRA_PRINTS_VARIANT_ID;
 
   const requiredEnv = [
     !storefrontToken && "SHOPIFY_STOREFRONT_TOKEN",
@@ -34,6 +35,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (weddingBoxId) {
     if (!wbGalleryVariantId) requiredEnv.push("WB_SCANS_VARIANT_ID");
     if (printsQty > 0 && !wbPrintsVariantId) requiredEnv.push("WB_PRINTS_VARIANT_ID");
+  }
+  if (extraPrintsQty > 0 && !extraPrintsVariantId) {
+    requiredEnv.push("EXTRA_PRINTS_VARIANT_ID");
   }
 
   if (requiredEnv.length > 0) {
@@ -108,6 +112,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         quantity: 1,
         ...(attributes.length > 0 ? { attributes } : {}),
       },
+      ...(extraPrintsQty > 0 && extraPrintsVariantId
+        ? [{
+            merchandiseId: `gid://shopify/ProductVariant/${extraPrintsVariantId}`,
+            quantity: extraPrintsQty,
+            attributes: [{ key: "camera_id", value: cid }],
+          }]
+        : []),
     ];
   }
 
@@ -121,7 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const apiUrl = `https://${storeDomain}/api/2024-10/graphql.json`;
 
-    console.log(`[CART] Creating cart: format=${format}, cid=${cid}, attrs=${attributes.length}${weddingBoxId ? `, wb=${weddingBoxId}, prints=${printsQty || 0}` : ""}, lines=${lines.length}`);
+    console.log(`[CART] Creating cart: format=${format}, cid=${cid}, attrs=${attributes.length}${weddingBoxId ? `, wb=${weddingBoxId}, prints=${printsQty || 0}` : ""}${extraPrintsQty > 0 ? `, extraPrints=${extraPrintsQty}` : ""}, lines=${lines.length}`);
 
     const response = await fetch(apiUrl, {
       method: "POST",

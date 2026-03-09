@@ -10,6 +10,8 @@ interface Props {
   isWeddingBox?: boolean;
   printsQty?: number;
   onPrintsQtyChange?: (qty: number) => void;
+  extraPrintsQty?: number;
+  onExtraPrintsQtyChange?: (qty: number) => void;
   onChange: (f: FormatType) => void;
   onNext: () => void;
   onBack: () => void;
@@ -22,6 +24,7 @@ const STANDARD_OPTIONS: { id: FormatType; label: string; price: number }[] = [
 
 const WB_GALLERY_PRICE = 79.99;
 const WB_PRINTS_PRICE = 70.0;
+const EXTRA_PRINTS_PRICE = 7.0;
 
 const fmt = (n: number) => `$${n.toFixed(2)}`;
 
@@ -31,6 +34,8 @@ export default function FormatStep({
   isWeddingBox,
   printsQty = 0,
   onPrintsQtyChange,
+  extraPrintsQty = 0,
+  onExtraPrintsQtyChange,
   onChange,
   onNext,
   onBack,
@@ -151,6 +156,52 @@ export default function FormatStep({
           );
         })}
       </div>
+
+      {format === "prints" && (
+        <div style={addonSection}>
+          <button
+            type="button"
+            onClick={() => {
+              if (extraPrintsQty > 0) {
+                onExtraPrintsQtyChange?.(0);
+              } else {
+                onExtraPrintsQtyChange?.(1);
+              }
+            }}
+            style={{
+              ...card,
+              backgroundColor: extraPrintsQty > 0 ? "var(--color-selected)" : "var(--color-bg)",
+              borderColor: "var(--color-border)",
+            }}
+          >
+            <span style={cardLabel}>+ Extra Prints</span>
+            <span style={cardPrice}>{fmt(EXTRA_PRINTS_PRICE)}/ea</span>
+          </button>
+
+          {extraPrintsQty > 0 && (
+            <div style={qtyRow}>
+              <span style={qtyLabel}>Quantity</span>
+              <div style={qtyControls}>
+                <button
+                  type="button"
+                  style={qtyBtn}
+                  onClick={() => onExtraPrintsQtyChange?.(Math.max(1, extraPrintsQty - 1))}
+                >
+                  <span style={qtySymbol}>−</span>
+                </button>
+                <span style={qtyValue}>{extraPrintsQty}</span>
+                <button
+                  type="button"
+                  style={qtyBtn}
+                  onClick={() => onExtraPrintsQtyChange?.(extraPrintsQty + 1)}
+                >
+                  <span style={qtySymbol}>+</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <Button onClick={onNext} disabled={!format}>
         Continue

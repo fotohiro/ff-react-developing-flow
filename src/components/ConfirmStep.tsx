@@ -15,6 +15,7 @@ interface Props {
   discountPct?: number | null;
   weddingBoxId?: string | null;
   printsQty?: number;
+  extraPrintsQty?: number;
   onBack: () => void;
 }
 
@@ -25,6 +26,7 @@ const FORMAT_INFO: Record<FormatType, { label: string; price: number }> = {
 
 const WB_GALLERY_PRICE = 79.99;
 const WB_PRINTS_PRICE = 70.0;
+const EXTRA_PRINTS_PRICE = 7.0;
 
 const fmt = (n: number) => `$${n.toFixed(2)}`;
 
@@ -39,6 +41,7 @@ export default function ConfirmStep({
   discountPct,
   weddingBoxId,
   printsQty = 0,
+  extraPrintsQty = 0,
   onBack,
 }: Props) {
   const [loading, setLoading] = useState(false);
@@ -58,11 +61,11 @@ export default function ConfirmStep({
         console.log("[CHECKOUT] Label uploaded:", hostedLabelUrl);
       }
 
+      const basePrice = salePrice ?? info.price;
       const totalPrice = isWeddingBox
         ? WB_GALLERY_PRICE + printsQty * WB_PRINTS_PRICE
-        : (salePrice ?? info.price);
+        : basePrice + extraPrintsQty * EXTRA_PRINTS_PRICE;
 
-      // Create cart — use hosted URL for camera captures, raw URL for generated labels, token for fast-track
       const checkoutUrl = await createCart({
         format,
         cid,
@@ -72,6 +75,7 @@ export default function ConfirmStep({
           : { labelUrl: hostedLabelUrl ?? labelImg ?? undefined }),
         ...(discountCode ? { discountCode } : {}),
         ...(weddingBoxId ? { weddingBoxId, printsQty } : {}),
+        ...(extraPrintsQty > 0 ? { extraPrintsQty } : {}),
       });
 
       // Cart created successfully — now fire Klaviyo event
@@ -152,6 +156,22 @@ export default function ConfirmStep({
                 <span style={rowValue}>{fmt(info.price)}</span>
               )}
             </div>
+            {extraPrintsQty > 0 && (
+              <>
+                <div style={divider} />
+                <div style={row}>
+                  <span style={rowLabel}>{extraPrintsQty}× Extra Prints</span>
+                  <span style={rowValue}>{fmt(extraPrintsQty * EXTRA_PRINTS_PRICE)}</span>
+                </div>
+                <div style={divider} />
+                <div style={row}>
+                  <span style={{ ...rowLabel, fontWeight: 600 }}>Total</span>
+                  <span style={{ ...rowValue, fontWeight: 600 }}>
+                    {fmt((salePrice ?? info.price) + extraPrintsQty * EXTRA_PRINTS_PRICE)}
+                  </span>
+                </div>
+              </>
+            )}
           </>
         )}
 

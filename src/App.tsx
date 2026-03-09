@@ -32,6 +32,7 @@ export default function App() {
   const [labelImg, setLabelImg] = useState<string | null>(null);
   const [labelSource, setLabelSource] = useState<"camera" | "replacement" | null>(null);
   const [printsQty, setPrintsQty] = useState(0);
+  const [extraPrintsQty, setExtraPrintsQty] = useState(0);
 
   const currentStep = steps[stepIdx];
 
@@ -49,14 +50,22 @@ export default function App() {
     goNext();
   };
 
+  const handleFormatChange = (f: FormatType) => {
+    setFormat(f);
+    if (f !== "prints") setExtraPrintsQty(0);
+  };
+
   const handleFormatNext = () => {
     if (!format) return;
     const price = isWeddingBox
       ? `$${(79.99 + printsQty * 70).toFixed(2)}`
-      : format === "scans" ? "$9.99" : "$16.99";
+      : format === "prints" && extraPrintsQty > 0
+        ? `$${(16.99 + extraPrintsQty * 7).toFixed(2)}`
+        : format === "scans" ? "$9.99" : "$16.99";
     trackEvent("Selected Format", email, {
       cid, email, format, price,
       ...(isWeddingBox ? { weddingBoxId: wbid, printsQty } : {}),
+      ...(extraPrintsQty > 0 ? { extraPrintsQty } : {}),
     });
     goNext();
   };
@@ -91,7 +100,9 @@ export default function App() {
             isWeddingBox={isWeddingBox}
             printsQty={printsQty}
             onPrintsQtyChange={setPrintsQty}
-            onChange={setFormat}
+            extraPrintsQty={extraPrintsQty}
+            onExtraPrintsQtyChange={setExtraPrintsQty}
+            onChange={handleFormatChange}
             onNext={handleFormatNext}
             onBack={goBack}
           />
@@ -121,6 +132,7 @@ export default function App() {
             discountPct={discountPct}
             weddingBoxId={wbid}
             printsQty={printsQty}
+            extraPrintsQty={extraPrintsQty}
             onBack={goBack}
           />
         );

@@ -90,6 +90,7 @@ export async function createCart(payload: {
   discountCode?: string;
   weddingBoxId?: string;
   printsQty?: number;
+  extraPrintsQty?: number;
 }): Promise<string> {
   const res = await fetch(`${API_BASE}/cart-create`, {
     method: "POST",
