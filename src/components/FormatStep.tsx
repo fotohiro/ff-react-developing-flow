@@ -261,6 +261,8 @@ const checkbox: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   flexShrink: 0,
+  position: "relative",
+  top: 1,
 };
 
 const checkboxFill: CSSProperties = {
@@ -297,11 +299,13 @@ const qtyBtn: CSSProperties = {
   backgroundColor: "var(--color-bg)",
   fontFamily: "var(--font-body)",
   fontSize: 20,
+  lineHeight: 1,
   color: "var(--color-text)",
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  paddingBottom: 3,
   WebkitTapHighlightColor: "transparent",
 };
 
