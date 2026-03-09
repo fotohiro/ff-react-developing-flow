@@ -88,6 +88,8 @@ export async function createCart(payload: {
   labelUrl?: string;
   labelToken?: string;
   discountCode?: string;
+  weddingBoxId?: string;
+  printsQty?: number;
 }): Promise<string> {
   const res = await fetch(`${API_BASE}/cart-create`, {
     method: "POST",

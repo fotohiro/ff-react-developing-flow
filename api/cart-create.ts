@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { format, cid, email, labelUrl, labelToken, weddingBoxId, discountCode } = req.body;
+  const { format, cid, email, labelUrl, labelToken, weddingBoxId, printsQty, discountCode } = req.body;
 
   if (!format || !cid || !email) {
     return res.status(400).json({ error: "Missing required fields" });
@@ -22,16 +22,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const storeDomain = process.env.SHOPIFY_STORE_DOMAIN || "foto-foto-foto.myshopify.com";
   const scansVariantId = process.env.SCANS_VARIANT_ID;
   const printsVariantId = process.env.PRINTS_VARIANT_ID;
+  const wbGalleryVariantId = process.env.WB_GALLERY_VARIANT_ID;
+  const wbPrintsVariantId = process.env.WB_PRINTS_VARIANT_ID;
 
-  if (!storefrontToken || !scansVariantId || !printsVariantId) {
-    const missing = [
-      !storefrontToken && "SHOPIFY_STOREFRONT_TOKEN",
-      !scansVariantId && "SCANS_VARIANT_ID",
-      !printsVariantId && "PRINTS_VARIANT_ID",
-    ].filter(Boolean);
-    console.error(`[CART] Missing env vars: ${missing.join(", ")}`);
+  const requiredEnv = [
+    !storefrontToken && "SHOPIFY_STOREFRONT_TOKEN",
+    !scansVariantId && "SCANS_VARIANT_ID",
+    !printsVariantId && "PRINTS_VARIANT_ID",
+  ].filter(Boolean);
+
+  if (weddingBoxId) {
+    if (!wbGalleryVariantId) requiredEnv.push("WB_GALLERY_VARIANT_ID");
+    if (printsQty > 0 && !wbPrintsVariantId) requiredEnv.push("WB_PRINTS_VARIANT_ID");
+  }
+
+  if (requiredEnv.length > 0) {
+    console.error(`[CART] Missing env vars: ${requiredEnv.join(", ")}`);
     return res.status(500).json({
-      error: `Server misconfigured — missing: ${missing.join(", ")}`,
+      error: `Server misconfigured — missing: ${requiredEnv.join(", ")}`,
     });
   }
 
@@ -72,15 +80,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return true;
   });
 
+  // Build cart lines — wedding box orders have a base gallery + optional prints add-on
+  let lines;
+  if (weddingBoxId && wbGalleryVariantId) {
+    const baseAttributes = attributes;
+    lines = [
+      {
+        merchandiseId: `gid://shopify/ProductVariant/${wbGalleryVariantId}`,
+        quantity: 1,
+        ...(baseAttributes.length > 0 ? { attributes: baseAttributes } : {}),
+      },
+      ...(printsQty > 0 && wbPrintsVariantId
+        ? [{
+            merchandiseId: `gid://shopify/ProductVariant/${wbPrintsVariantId}`,
+            quantity: printsQty,
+            attributes: [
+              { key: "camera_id", value: cid },
+              { key: "wedding_box_id", value: weddingBoxId },
+            ],
+          }]
+        : []),
+    ];
+  } else {
+    lines = [
+      {
+        merchandiseId: `gid://shopify/ProductVariant/${variantId}`,
+        quantity: 1,
+        ...(attributes.length > 0 ? { attributes } : {}),
+      },
+    ];
+  }
+
   const variables = {
     input: {
-      lines: [
-        {
-          merchandiseId: `gid://shopify/ProductVariant/${variantId}`,
-          quantity: 1,
-          ...(attributes.length > 0 ? { attributes } : {}),
-        },
-      ],
+      lines,
       ...(discountCode ? { discountCodes: [discountCode] } : {}),
     },
   };
@@ -88,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const apiUrl = `https://${storeDomain}/api/2024-10/graphql.json`;
 
-    console.log(`[CART] Creating cart: format=${format}, cid=${cid}, attrs=${attributes.length}`);
+    console.log(`[CART] Creating cart: format=${format}, cid=${cid}, attrs=${attributes.length}${weddingBoxId ? `, wb=${weddingBoxId}, prints=${printsQty || 0}` : ""}, lines=${lines.length}`);
 
     const response = await fetch(apiUrl, {
       method: "POST",

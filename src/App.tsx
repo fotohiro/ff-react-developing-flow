@@ -14,20 +14,24 @@ import type { FormatType } from "./components/FormatStep";
 type StepName = "email" | "format" | "upload" | "confirm";
 
 export default function App() {
-  const { cid, lt, discount, discountPct, email: emailParam } = useMemo(getParams, []);
+  const { cid, wbid, atLab, lt, discount, discountPct, email: emailParam } = useMemo(getParams, []);
   const hasToken = !!lt;
+  const isWeddingBox = !!wbid;
 
-  /* Step configuration — adapts to fast-track vs. standard flow */
+  /* Step configuration — adapts to fast-track / at-lab / standard flow */
   const steps: StepName[] = hasToken
     ? ["format", "confirm"]
-    : ["email", "format", "upload", "confirm"];
+    : atLab
+      ? ["email", "format", "confirm"]
+      : ["email", "format", "upload", "confirm"];
 
   /* Wizard state */
   const [stepIdx, setStepIdx] = useState(0);
   const [email, setEmail] = useState(emailParam ?? "");
-  const [format, setFormat] = useState<FormatType | null>(null);
+  const [format, setFormat] = useState<FormatType | null>(isWeddingBox ? "scans" : null);
   const [labelImg, setLabelImg] = useState<string | null>(null);
   const [labelSource, setLabelSource] = useState<"camera" | "replacement" | null>(null);
+  const [printsQty, setPrintsQty] = useState(0);
 
   const currentStep = steps[stepIdx];
 
@@ -47,8 +51,13 @@ export default function App() {
 
   const handleFormatNext = () => {
     if (!format) return;
-    const price = format === "scans" ? "$9.99" : "$16.99";
-    trackEvent("Selected Format", email, { cid, email, format, price });
+    const price = isWeddingBox
+      ? `$${(79.99 + printsQty * 70).toFixed(2)}`
+      : format === "scans" ? "$9.99" : "$16.99";
+    trackEvent("Selected Format", email, {
+      cid, email, format, price,
+      ...(isWeddingBox ? { weddingBoxId: wbid, printsQty } : {}),
+    });
     goNext();
   };
 
@@ -79,6 +88,9 @@ export default function App() {
           <FormatStep
             format={format}
             discountPct={discountPct}
+            isWeddingBox={isWeddingBox}
+            printsQty={printsQty}
+            onPrintsQtyChange={setPrintsQty}
             onChange={setFormat}
             onNext={handleFormatNext}
             onBack={goBack}
@@ -107,6 +119,8 @@ export default function App() {
             labelSource={labelSource}
             discountCode={discount}
             discountPct={discountPct}
+            weddingBoxId={wbid}
+            printsQty={printsQty}
             onBack={goBack}
           />
         );

@@ -13,6 +13,8 @@ interface Props {
   labelSource: "camera" | "replacement" | null;
   discountCode?: string | null;
   discountPct?: number | null;
+  weddingBoxId?: string | null;
+  printsQty?: number;
   onBack: () => void;
 }
 
@@ -20,6 +22,9 @@ const FORMAT_INFO: Record<FormatType, { label: string; price: number }> = {
   scans: { label: "Digital Scans", price: 9.99 },
   prints: { label: "Prints + Scans", price: 16.99 },
 };
+
+const WB_GALLERY_PRICE = 79.99;
+const WB_PRINTS_PRICE = 70.0;
 
 const fmt = (n: number) => `$${n.toFixed(2)}`;
 
@@ -32,9 +37,12 @@ export default function ConfirmStep({
   labelSource,
   discountCode,
   discountPct,
+  weddingBoxId,
+  printsQty = 0,
   onBack,
 }: Props) {
   const [loading, setLoading] = useState(false);
+  const isWeddingBox = !!weddingBoxId;
   const info = FORMAT_INFO[format];
   const hasDiscount = discountPct && discountPct > 0;
   const salePrice = hasDiscount ? info.price * (1 - discountPct / 100) : null;
@@ -50,6 +58,10 @@ export default function ConfirmStep({
         console.log("[CHECKOUT] Label uploaded:", hostedLabelUrl);
       }
 
+      const totalPrice = isWeddingBox
+        ? WB_GALLERY_PRICE + printsQty * WB_PRINTS_PRICE
+        : (salePrice ?? info.price);
+
       // Create cart — use hosted URL for camera captures, raw URL for generated labels, token for fast-track
       const checkoutUrl = await createCart({
         format,
@@ -59,14 +71,16 @@ export default function ConfirmStep({
           ? { labelToken }
           : { labelUrl: hostedLabelUrl ?? labelImg ?? undefined }),
         ...(discountCode ? { discountCode } : {}),
+        ...(weddingBoxId ? { weddingBoxId, printsQty } : {}),
       });
 
       // Cart created successfully — now fire Klaviyo event
       trackEvent("Completed Checkout", email, {
         cid,
         format,
-        price: fmt(salePrice ?? info.price),
+        price: fmt(totalPrice),
         checkout_url: checkoutUrl,
+        ...(weddingBoxId ? { weddingBoxId, printsQty } : {}),
         ...(labelSource === "replacement" && labelImg
           ? { labelUrl: labelImg }
           : labelSource === "camera" && hostedLabelUrl
@@ -99,18 +113,48 @@ export default function ConfirmStep({
           <span style={rowLabel}>Camera</span>
           <span style={rowValue}>#{cid}</span>
         </div>
-        <div style={divider} />
-        <div style={row}>
-          <span style={rowLabel}>{info.label}</span>
-          {salePrice != null ? (
-            <span style={rowValue}>
-              <span style={strikePrice}>{fmt(info.price)}</span>{" "}
-              {fmt(salePrice)}
-            </span>
-          ) : (
-            <span style={rowValue}>{fmt(info.price)}</span>
-          )}
-        </div>
+
+        {isWeddingBox ? (
+          <>
+            <div style={divider} />
+            <div style={row}>
+              <span style={rowLabel}>Digital Gallery</span>
+              <span style={rowValue}>{fmt(WB_GALLERY_PRICE)}</span>
+            </div>
+            {printsQty > 0 && (
+              <>
+                <div style={divider} />
+                <div style={row}>
+                  <span style={rowLabel}>{printsQty}× Wedding Prints</span>
+                  <span style={rowValue}>{fmt(printsQty * WB_PRINTS_PRICE)}</span>
+                </div>
+              </>
+            )}
+            <div style={divider} />
+            <div style={row}>
+              <span style={{ ...rowLabel, fontWeight: 600 }}>Total</span>
+              <span style={{ ...rowValue, fontWeight: 600 }}>
+                {fmt(WB_GALLERY_PRICE + printsQty * WB_PRINTS_PRICE)}
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={divider} />
+            <div style={row}>
+              <span style={rowLabel}>{info.label}</span>
+              {salePrice != null ? (
+                <span style={rowValue}>
+                  <span style={strikePrice}>{fmt(info.price)}</span>{" "}
+                  {fmt(salePrice)}
+                </span>
+              ) : (
+                <span style={rowValue}>{fmt(info.price)}</span>
+              )}
+            </div>
+          </>
+        )}
+
         <div style={divider} />
         <div style={row}>
           <span style={rowLabel}>Email</span>
