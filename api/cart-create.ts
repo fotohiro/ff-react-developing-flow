@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const storeDomain = process.env.SHOPIFY_STORE_DOMAIN || "foto-foto-foto.myshopify.com";
   const scansVariantId = process.env.SCANS_VARIANT_ID;
   const printsVariantId = process.env.PRINTS_VARIANT_ID;
-  const wbGalleryVariantId = process.env.WB_GALLERY_VARIANT_ID;
+  const wbGalleryVariantId = process.env.WB_SCANS_VARIANT_ID;
   const wbPrintsVariantId = process.env.WB_PRINTS_VARIANT_ID;
 
   const requiredEnv = [
@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   ].filter(Boolean);
 
   if (weddingBoxId) {
-    if (!wbGalleryVariantId) requiredEnv.push("WB_GALLERY_VARIANT_ID");
+    if (!wbGalleryVariantId) requiredEnv.push("WB_SCANS_VARIANT_ID");
     if (printsQty > 0 && !wbPrintsVariantId) requiredEnv.push("WB_PRINTS_VARIANT_ID");
   }
 
