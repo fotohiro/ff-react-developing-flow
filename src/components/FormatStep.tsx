@@ -86,7 +86,7 @@ export default function FormatStep({
                   style={qtyBtn}
                   onClick={() => onPrintsQtyChange?.(Math.max(1, printsQty - 1))}
                 >
-                  −
+                  <span style={qtySymbol}>−</span>
                 </button>
                 <span style={qtyValue}>{printsQty}</span>
                 <button
@@ -94,7 +94,7 @@ export default function FormatStep({
                   style={qtyBtn}
                   onClick={() => onPrintsQtyChange?.(printsQty + 1)}
                 >
-                  +
+                  <span style={qtySymbol}>+</span>
                 </button>
               </div>
             </div>
@@ -261,8 +261,6 @@ const checkbox: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   flexShrink: 0,
-  position: "relative",
-  top: 1,
 };
 
 const checkboxFill: CSSProperties = {
@@ -297,16 +295,20 @@ const qtyBtn: CSSProperties = {
   borderRadius: "50%",
   border: "1px solid var(--color-border)",
   backgroundColor: "var(--color-bg)",
-  fontFamily: "var(--font-body)",
-  fontSize: 20,
-  lineHeight: 1,
   color: "var(--color-text)",
   cursor: "pointer",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  paddingBottom: 3,
+  padding: 0,
   WebkitTapHighlightColor: "transparent",
+};
+
+const qtySymbol: CSSProperties = {
+  fontSize: 20,
+  lineHeight: 1,
+  display: "block",
+  transform: "translateY(-2px)",
 };
 
 const qtyValue: CSSProperties = {
