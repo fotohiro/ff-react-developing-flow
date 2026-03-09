@@ -250,6 +250,8 @@ const addonLeft: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 14,
+  position: "relative",
+  top: -1,
 };
 
 const checkbox: CSSProperties = {
