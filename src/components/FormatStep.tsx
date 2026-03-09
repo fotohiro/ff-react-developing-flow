@@ -41,7 +41,7 @@ export default function FormatStep({
         <BackButton onClick={onBack} />
 
         <h1 style={headline}>
-          Your wedding{"\n"}gallery.
+          Choose your{"\n"}format.
         </h1>
 
         {/* Base: Digital Gallery — always included */}
@@ -67,12 +67,7 @@ export default function FormatStep({
               borderColor: "var(--color-border)",
             }}
           >
-            <div style={addonLeft}>
-              <div style={checkbox}>
-                {printsQty > 0 && <div style={checkboxFill} />}
-              </div>
-              <span style={cardLabel}>Add Prints</span>
-            </div>
+            <span style={cardLabel}>+ Add Prints</span>
             <span style={cardPrice}>{fmt(WB_PRINTS_PRICE)}/ea</span>
           </button>
 
@@ -244,32 +239,6 @@ const cardBadge: CSSProperties = {
 const addonSection: CSSProperties = {
   marginTop: 18,
   marginBottom: 24,
-};
-
-const addonLeft: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 14,
-  position: "relative",
-  top: -1,
-};
-
-const checkbox: CSSProperties = {
-  width: 22,
-  height: 22,
-  borderRadius: 6,
-  border: "2px solid var(--color-border)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-};
-
-const checkboxFill: CSSProperties = {
-  width: 12,
-  height: 12,
-  borderRadius: 3,
-  backgroundColor: "var(--color-text)",
 };
 
 const qtyRow: CSSProperties = {
