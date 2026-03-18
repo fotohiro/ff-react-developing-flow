@@ -2,6 +2,7 @@
 export function getParams() {
   const sp = new URLSearchParams(window.location.search);
   const rawPct = sp.get("discount_pct");
+  const rawFmt = sp.get("fmt");
   return {
     cid: sp.get("cid") ?? "0000",
     wbid: sp.get("wbid"),                       // wedding box ID
@@ -10,5 +11,6 @@ export function getParams() {
     discount: sp.get("discount"),                // winback discount code
     discountPct: rawPct ? Number(rawPct) || null : null,
     email: sp.get("email"),                      // pre-fill from Klaviyo link
+    fmt: rawFmt === "scans" || rawFmt === "prints" ? rawFmt : null,
   };
 }

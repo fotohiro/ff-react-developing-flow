@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 import { getParams } from "./lib/params";
@@ -14,25 +14,38 @@ import type { FormatType } from "./components/FormatStep";
 type StepName = "email" | "format" | "upload" | "confirm";
 
 export default function App() {
-  const { cid, wbid, atLab, lt, discount, discountPct, email: emailParam } = useMemo(getParams, []);
+  const { cid, wbid, atLab, lt, discount, discountPct, email: emailParam, fmt } = useMemo(getParams, []);
   const hasToken = !!lt;
   const isWeddingBox = !!wbid;
 
-  /* Step configuration — adapts to fast-track / at-lab / standard flow */
+  const skipEmail = !!emailParam && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailParam);
+  const skipFormat = skipEmail && !!fmt;
+
+  /* Step configuration — adapts to fast-track / at-lab / winback / standard flow */
   const steps: StepName[] = hasToken
     ? ["format", "confirm"]
     : atLab
-      ? ["email", "format", "confirm"]
-      : ["email", "format", "upload", "confirm"];
+      ? (skipEmail ? ["format", "confirm"] : ["email", "format", "confirm"])
+      : skipFormat
+        ? ["upload", "confirm"]
+        : skipEmail
+          ? ["format", "upload", "confirm"]
+          : ["email", "format", "upload", "confirm"];
 
   /* Wizard state */
   const [stepIdx, setStepIdx] = useState(0);
   const [email, setEmail] = useState(emailParam ?? "");
-  const [format, setFormat] = useState<FormatType | null>(isWeddingBox ? "scans" : null);
+  const [format, setFormat] = useState<FormatType | null>(isWeddingBox ? "scans" : fmt ?? null);
   const [labelImg, setLabelImg] = useState<string | null>(null);
   const [labelSource, setLabelSource] = useState<"camera" | "replacement" | null>(null);
   const [printsQty, setPrintsQty] = useState(0);
   const [extraPrintsQty, setExtraPrintsQty] = useState(0);
+
+  useEffect(() => {
+    if (skipEmail && emailParam) {
+      trackEvent("Started Developing", emailParam, { cid, email: emailParam, source: "winback" });
+    }
+  }, []);
 
   const currentStep = steps[stepIdx];
 
