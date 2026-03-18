@@ -11,6 +11,6 @@ export function getParams() {
     discount: sp.get("discount"),                // winback discount code
     discountPct: rawPct ? Number(rawPct) || null : null,
     email: sp.get("email"),                      // pre-fill from Klaviyo link
-    fmt: rawFmt === "scans" || rawFmt === "prints" ? rawFmt : null,
+    fmt: rawFmt === "scans" || rawFmt === "prints" ? rawFmt as "scans" | "prints" : null,
   };
 }
