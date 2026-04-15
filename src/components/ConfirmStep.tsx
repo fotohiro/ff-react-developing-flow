@@ -55,6 +55,9 @@ export default function ConfirmStep({
     try {
       // If the label is a camera capture (base64), upload it first to get a hosted URL
       let hostedLabelUrl: string | undefined;
+      // #region agent log
+      console.log(`[DEBUG-e3448b] Checkout label state — hasToken: ${!!labelToken}, hasImg: ${!!labelImg}, imgLength: ${labelImg?.length??0} (${((labelImg?.length??0)/1024/1024).toFixed(2)} MB), prefix: ${labelImg?.substring(0,80)??'null'}, source: ${labelSource}`);
+      // #endregion
       if (!labelToken && labelImg && labelImg.startsWith("data:")) {
         console.log("[CHECKOUT] Uploading camera-captured label to Blob...");
         hostedLabelUrl = await uploadLabelBase64(labelImg, cid);
