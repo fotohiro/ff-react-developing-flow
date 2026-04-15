@@ -13,12 +13,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { imageData, cid } = req.body ?? {};
-
-  console.log(`[UPLOAD] Body received — cid=${cid}, imageData type=${typeof imageData}, length=${imageData?.length ?? 'N/A'}, content-length=${req.headers['content-length']}`);
+  const { imageData, cid } = req.body;
 
   if (!imageData || !cid) {
-    console.log(`[UPLOAD] Rejected: missing fields — imageData=${!!imageData}, cid=${!!cid}, bodyKeys=${JSON.stringify(Object.keys(req.body ?? {}))}`);
     return res.status(400).json({ error: "Missing imageData or cid" });
   }
 

@@ -94,30 +94,15 @@ export async function uploadLabelBase64(
   imageData: string,
   cid: string
 ): Promise<string> {
-  // #region agent log
-  console.log(`[DEBUG-e3448b] Upload — original size: ${imageData.length} chars (${(imageData.length/1024/1024).toFixed(2)} MB)`);
-  // #endregion
-
   const compressed = await compressImage(imageData);
-
-  const jsonBody = JSON.stringify({ imageData: compressed, cid });
-  // #region agent log
-  console.log(`[DEBUG-e3448b] Upload — compressed size: ${compressed.length} chars (${(compressed.length/1024/1024).toFixed(2)} MB), jsonBody: ${(jsonBody.length/1024/1024).toFixed(2)} MB`);
-  // #endregion
-
   const res = await fetch(`${API_BASE}/upload-label`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: jsonBody,
+    body: JSON.stringify({ imageData: compressed, cid }),
   });
   if (!res.ok) {
-    // #region agent log
-    const rawText = await res.text();
-    console.error(`[DEBUG-e3448b] Upload FAILED — status: ${res.status} ${res.statusText}, body: ${rawText.substring(0,500)}`);
-    // #endregion
-    let errorMsg = "Failed to upload label image";
-    try { const parsed = JSON.parse(rawText); errorMsg = parsed.error || errorMsg; } catch {}
-    throw new Error(errorMsg);
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to upload label image");
   }
   const data = await res.json();
   return data.url;
