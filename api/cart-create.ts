@@ -4,7 +4,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
  * POST /api/cart-create
  * Create a Shopify cart via Storefront API and return checkout URL
  *
- * Body: { format: "scans"|"prints", cid: string, email: string, labelUrl?: string, labelToken?: string, weddingBoxId?: string }
+ * Body: { format: "scans"|"prints", cid: string, email: string, labelUrl?: string, labelToken?: string, labelTracking?: string, weddingBoxId?: string }
  * Returns: { checkoutUrl: string }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { format, cid, email, labelUrl, labelToken, weddingBoxId, printsQty, extraPrintsQty, discountCode } = req.body;
+  const { format, cid, email, labelUrl, labelToken, labelTracking, weddingBoxId, printsQty, extraPrintsQty, discountCode } = req.body;
 
   if (!format || !cid || !email) {
     return res.status(400).json({ error: "Missing required fields" });
@@ -75,6 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : labelUrl
         ? [{ key: "_Return Label", value: labelUrl }]
         : []),
+    ...(labelTracking ? [{ key: "_Return Tracking", value: labelTracking }] : []),
   ];
 
   const attributes = rawAttributes.filter((attr) => {

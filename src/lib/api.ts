@@ -115,6 +115,7 @@ export async function createCart(payload: {
   email: string;
   labelUrl?: string;
   labelToken?: string;
+  labelTracking?: string;
   discountCode?: string;
   weddingBoxId?: string;
   printsQty?: number;

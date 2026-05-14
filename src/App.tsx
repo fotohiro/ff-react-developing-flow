@@ -38,6 +38,7 @@ export default function App() {
   const [format, setFormat] = useState<FormatType | null>(isWeddingBox ? "scans" : fmt ?? null);
   const [labelImg, setLabelImg] = useState<string | null>(null);
   const [labelSource, setLabelSource] = useState<"camera" | "replacement" | null>(null);
+  const [labelTracking, setLabelTracking] = useState<string | null>(null);
   const [printsQty, setPrintsQty] = useState(0);
   const [extraPrintsQty, setExtraPrintsQty] = useState(0);
 
@@ -128,6 +129,7 @@ export default function App() {
             labelImg={labelImg}
             onCapture={handleCapture}
             onLabelSourceChange={setLabelSource}
+            onTrackingChange={setLabelTracking}
             onNext={handleUploadNext}
             onBack={goBack}
           />
@@ -141,6 +143,7 @@ export default function App() {
             labelImg={labelImg}
             labelToken={lt}
             labelSource={labelSource}
+            labelTracking={labelTracking}
             discountCode={discount}
             discountPct={discountPct}
             weddingBoxId={wbid}

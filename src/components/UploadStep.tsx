@@ -20,6 +20,7 @@ interface Props {
   labelImg: string | null;
   onCapture: (dataUrl: string) => void;
   onLabelSourceChange: (source: "camera" | "replacement" | null) => void;
+  onTrackingChange: (tracking: string | null) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -30,6 +31,7 @@ export default function UploadStep({
   labelImg,
   onCapture,
   onLabelSourceChange,
+  onTrackingChange,
   onNext,
   onBack,
 }: Props) {
@@ -73,6 +75,7 @@ export default function UploadStep({
         setLabelSource("camera");
         setError(null);
         onCapture(reader.result);
+        onTrackingChange(null);
       }
     };
     reader.readAsDataURL(file);
@@ -93,7 +96,7 @@ export default function UploadStep({
     setGenerating(true);
     setError(null);
     try {
-      const { labelUrl } = await requestReplacementLabel(cid, email, {
+      const { labelUrl, trackingNumber } = await requestReplacementLabel(cid, email, {
         ...address,
         name: address.name.trim(),
         street1: address.street1.trim(),
@@ -103,9 +106,10 @@ export default function UploadStep({
       });
       setLabelSource("replacement");
       onCapture(labelUrl);
+      onTrackingChange(trackingNumber);
 
       // Fire Klaviyo event for label email flow
-      trackEvent("Label Generated", email, { cid, labelUrl });
+      trackEvent("Label Generated", email, { cid, labelUrl, trackingNumber });
     } catch {
       setError("Something went wrong generating your label. Please try again.");
     } finally {
@@ -120,6 +124,7 @@ export default function UploadStep({
 
   const retake = () => {
     onCapture("");
+    onTrackingChange(null);
     setLabelSource(null);
     setError(null);
     setShowForm(false);

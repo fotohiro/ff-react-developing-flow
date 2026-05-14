@@ -11,6 +11,7 @@ interface Props {
   labelImg: string | null;
   labelToken: string | null;
   labelSource: "camera" | "replacement" | null;
+  labelTracking?: string | null;
   discountCode?: string | null;
   discountPct?: number | null;
   weddingBoxId?: string | null;
@@ -37,6 +38,7 @@ export default function ConfirmStep({
   labelImg,
   labelToken,
   labelSource,
+  labelTracking,
   discountCode,
   discountPct,
   weddingBoxId,
@@ -73,6 +75,7 @@ export default function ConfirmStep({
         ...(labelToken
           ? { labelToken }
           : { labelUrl: hostedLabelUrl ?? labelImg ?? undefined }),
+        ...(labelTracking ? { labelTracking } : {}),
         ...(discountCode ? { discountCode } : {}),
         ...(weddingBoxId ? { weddingBoxId, printsQty } : {}),
         ...(extraPrintsQty > 0 ? { extraPrintsQty } : {}),
