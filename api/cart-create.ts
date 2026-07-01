@@ -12,7 +12,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { format, cid, email, labelUrl, labelToken, labelTracking, weddingBoxId, printsQty, extraPrintsQty, discountCode } = req.body;
+  const { format, cid, email, country, labelUrl, labelToken, labelTracking, weddingBoxId, printsQty, extraPrintsQty, discountCode } = req.body;
+
+  // Validate the country so the checkout localizes to the same currency the
+  // customer was shown. Invalid/empty → let Shopify use its default market.
+  const countryCode =
+    typeof country === "string" && /^[A-Z]{2}$/.test(country.toUpperCase())
+      ? country.toUpperCase()
+      : undefined;
 
   if (!format || !cid || !email) {
     return res.status(400).json({ error: "Missing required fields" });
@@ -127,6 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     input: {
       lines,
       ...(discountCode ? { discountCodes: [discountCode] } : {}),
+      ...(countryCode ? { buyerIdentity: { countryCode } } : {}),
     },
   };
 

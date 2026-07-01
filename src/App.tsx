@@ -3,6 +3,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 import { getParams } from "./lib/params";
 import { trackEvent } from "./lib/api";
+import { usePricing } from "./lib/pricing";
 import ProgressBar from "./components/ProgressBar";
 import FadeIn from "./components/FadeIn";
 import EmailStep from "./components/EmailStep";
@@ -15,6 +16,7 @@ type StepName = "email" | "format" | "upload" | "confirm";
 
 export default function App() {
   const { cid, wbid, atLab, lt, discount, discountPct, email: emailParam, fmt } = useMemo(getParams, []);
+  const { prices, formatPrice } = usePricing();
   const hasToken = !!lt;
   const isWeddingBox = !!wbid;
 
@@ -72,10 +74,10 @@ export default function App() {
   const handleFormatNext = () => {
     if (!format) return;
     const price = isWeddingBox
-      ? `$${(79.99 + printsQty * 70).toFixed(2)}`
+      ? formatPrice(prices.wbGallery + printsQty * prices.wbPrints)
       : format === "prints" && extraPrintsQty > 0
-        ? `$${(16.99 + extraPrintsQty * 7).toFixed(2)}`
-        : format === "scans" ? "$9.99" : "$16.99";
+        ? formatPrice(prices.prints + extraPrintsQty * prices.extraPrints)
+        : formatPrice(prices[format]);
     trackEvent("Selected Format", email, {
       cid, email, format, price,
       ...(isWeddingBox ? { weddingBoxId: wbid, printsQty } : {}),

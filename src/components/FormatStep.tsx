@@ -1,6 +1,7 @@
 import { type CSSProperties } from "react";
 import Button from "./Button";
 import BackButton from "./BackButton";
+import { usePricing } from "../lib/pricing";
 
 export type FormatType = "scans" | "prints";
 
@@ -17,16 +18,10 @@ interface Props {
   onBack: () => void;
 }
 
-const STANDARD_OPTIONS: { id: FormatType; label: string; price: number }[] = [
-  { id: "scans", label: "Digital Scans", price: 9.99 },
-  { id: "prints", label: "Prints + Scans", price: 16.99 },
+const STANDARD_OPTIONS: { id: FormatType; label: string }[] = [
+  { id: "scans", label: "Digital Scans" },
+  { id: "prints", label: "Prints + Scans" },
 ];
-
-const WB_GALLERY_PRICE = 79.99;
-const WB_PRINTS_PRICE = 70.0;
-const EXTRA_PRINTS_PRICE = 7.0;
-
-const fmt = (n: number) => `$${n.toFixed(2)}`;
 
 export default function FormatStep({
   format,
@@ -40,6 +35,11 @@ export default function FormatStep({
   onNext,
   onBack,
 }: Props) {
+  const { prices, formatPrice: fmt } = usePricing();
+  const WB_GALLERY_PRICE = prices.wbGallery;
+  const WB_PRINTS_PRICE = prices.wbPrints;
+  const EXTRA_PRINTS_PRICE = prices.extraPrints;
+
   if (isWeddingBox) {
     return (
       <div style={container}>
@@ -126,9 +126,10 @@ export default function FormatStep({
       <div style={cards}>
         {STANDARD_OPTIONS.map((opt) => {
           const selected = format === opt.id;
+          const optPrice = prices[opt.id];
           const hasDiscount = discountPct && discountPct > 0;
           const salePrice = hasDiscount
-            ? opt.price * (1 - discountPct / 100)
+            ? optPrice * (1 - discountPct / 100)
             : null;
           return (
             <button
@@ -150,7 +151,7 @@ export default function FormatStep({
                   <span style={cardBadge}>-{discountPct}%</span>
                 </span>
               ) : (
-                <span style={cardPrice}>{fmt(opt.price)}</span>
+                <span style={cardPrice}>{fmt(optPrice)}</span>
               )}
             </button>
           );

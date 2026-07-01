@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from "react";
 import Button from "./Button";
 import BackButton from "./BackButton";
 import { createCart, trackEvent, uploadLabelBase64 } from "../lib/api";
+import { usePricing } from "../lib/pricing";
 import type { FormatType } from "./FormatStep";
 
 interface Props {
@@ -20,16 +21,10 @@ interface Props {
   onBack: () => void;
 }
 
-const FORMAT_INFO: Record<FormatType, { label: string; price: number }> = {
-  scans: { label: "Digital Scans", price: 9.99 },
-  prints: { label: "Prints + Scans", price: 16.99 },
+const FORMAT_LABELS: Record<FormatType, string> = {
+  scans: "Digital Scans",
+  prints: "Prints + Scans",
 };
-
-const WB_GALLERY_PRICE = 79.99;
-const WB_PRINTS_PRICE = 70.0;
-const EXTRA_PRINTS_PRICE = 7.0;
-
-const fmt = (n: number) => `$${n.toFixed(2)}`;
 
 export default function ConfirmStep({
   cid,
@@ -46,9 +41,14 @@ export default function ConfirmStep({
   extraPrintsQty = 0,
   onBack,
 }: Props) {
+  const { prices, formatPrice: fmt, country } = usePricing();
+  const WB_GALLERY_PRICE = prices.wbGallery;
+  const WB_PRINTS_PRICE = prices.wbPrints;
+  const EXTRA_PRINTS_PRICE = prices.extraPrints;
+
   const [loading, setLoading] = useState(false);
   const isWeddingBox = !!weddingBoxId;
-  const info = FORMAT_INFO[format];
+  const info = { label: FORMAT_LABELS[format], price: prices[format] };
   const hasDiscount = discountPct && discountPct > 0;
   const salePrice = hasDiscount ? info.price * (1 - discountPct / 100) : null;
 
@@ -72,6 +72,7 @@ export default function ConfirmStep({
         format,
         cid,
         email,
+        country,
         ...(labelToken
           ? { labelToken }
           : { labelUrl: hostedLabelUrl ?? labelImg ?? undefined }),
