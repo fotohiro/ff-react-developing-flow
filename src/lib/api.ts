@@ -28,39 +28,45 @@ export interface CustomerAddress {
   zip: string;
 }
 
-/** Request a replacement return label */
-export async function requestReplacementLabel(
+/** Request a prepaid USPS Label Broker QR via Shippo (customer → lab). */
+export async function requestReturnQr(
   cid: string,
   email: string,
   address: CustomerAddress
-): Promise<{ labelUrl: string; trackingNumber: string; trackingUrl?: string }> {
+): Promise<{
+  qrCodeUrl: string;
+  labelUrl: string | null;
+  trackingNumber: string;
+  trackingUrl?: string | null;
+  stub?: boolean;
+}> {
   try {
-    const res = await fetch(`${API_BASE}/replacement-label`, {
+    const res = await fetch(`${API_BASE}/return-qr`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cid, email, address }),
     });
 
     const data = await res.json();
-
     if (!res.ok) throw new Error(data.error || "API returned error");
-
-    // If the API returned a stub response, it still has valid shape
+    if (!data.qrCodeUrl) throw new Error("No QR code returned");
     return data;
-  } catch {
-    // Dev fallback: simulate API delay + return mock label
+  } catch (err) {
     if (import.meta.env.DEV) {
-      console.log("[DEV] Mocking replacement label generation...");
-      await new Promise((r) => setTimeout(r, 2000)); // Simulate 2s API call
+      console.log("[DEV] Mocking return QR generation...", err);
+      await new Promise((r) => setTimeout(r, 1200));
       return {
-        labelUrl:
-          "https://placehold.co/400x200/f0f0f0/666?text=USPS+Return+Label%0AFOTO+FOTO+%7C+Brooklyn+NY",
-        trackingNumber: "DEV_TRACKING_" + Date.now(),
+        qrCodeUrl:
+          "https://placehold.co/300x300/f0f0f0/666?text=USPS+Label+Broker%0AQR+(dev)",
+        labelUrl: null,
+        trackingNumber: "DEV_QR_" + Date.now(),
+        stub: true,
       };
     }
-    throw new Error("Failed to generate replacement label");
+    throw err instanceof Error ? err : new Error("Failed to generate return QR");
   }
 }
+
 
 const MAX_LABEL_DIMENSION = 1200;
 const LABEL_JPEG_QUALITY = 0.8;

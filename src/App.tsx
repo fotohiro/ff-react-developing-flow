@@ -8,11 +8,11 @@ import ProgressBar from "./components/ProgressBar";
 import FadeIn from "./components/FadeIn";
 import EmailStep from "./components/EmailStep";
 import FormatStep from "./components/FormatStep";
-import UploadStep from "./components/UploadStep";
+import ReturnLabelStep from "./components/ReturnLabelStep";
 import ConfirmStep from "./components/ConfirmStep";
 import type { FormatType } from "./components/FormatStep";
 
-type StepName = "email" | "format" | "upload" | "confirm";
+type StepName = "email" | "format" | "returnLabel" | "confirm";
 
 export default function App() {
   const { cid, wbid, atLab, lt, discount, discountPct, email: emailParam, fmt } = useMemo(getParams, []);
@@ -29,10 +29,10 @@ export default function App() {
     : atLab
       ? (skipEmail ? ["format", "confirm"] : ["email", "format", "confirm"])
       : skipFormat
-        ? ["upload", "confirm"]
+        ? ["returnLabel", "confirm"]
         : skipEmail
-          ? ["format", "upload", "confirm"]
-          : ["email", "format", "upload", "confirm"];
+          ? ["format", "returnLabel", "confirm"]
+          : ["email", "format", "returnLabel", "confirm"];
 
   /* Wizard state */
   const [stepIdx, setStepIdx] = useState(0);
@@ -123,9 +123,9 @@ export default function App() {
             onBack={goBack}
           />
         );
-      case "upload":
+      case "returnLabel":
         return (
-          <UploadStep
+          <ReturnLabelStep
             cid={cid}
             email={email}
             labelImg={labelImg}
