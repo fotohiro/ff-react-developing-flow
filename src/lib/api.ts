@@ -26,6 +26,8 @@ export interface CustomerAddress {
   city: string;
   state: string;
   zip: string;
+  /** USPS requires a valid phone on the ship-from address for Label Broker. */
+  phone: string;
 }
 
 /** Request a prepaid USPS Label Broker QR via Shippo (customer → lab). */
@@ -66,7 +68,6 @@ export async function requestReturnQr(
     throw err instanceof Error ? err : new Error("Failed to generate return QR");
   }
 }
-
 
 const MAX_LABEL_DIMENSION = 1200;
 const LABEL_JPEG_QUALITY = 0.8;
@@ -112,6 +113,48 @@ export async function uploadLabelBase64(
   }
   const data = await res.json();
   return data.url;
+}
+
+/** International (EU) return address collected in the flow */
+export interface IntlReturnAddress {
+  name: string;
+  street: string;
+  houseNumber: string;
+  city: string;
+  postalCode: string;
+  phone: string;
+}
+
+export interface IntlReturnLabel {
+  labelUrl: string | null;
+  qrCodeUrl: string | null;
+  trackingNumber: string | null;
+  carrier: string;
+  paperless: boolean;
+  stub?: boolean;
+}
+
+/** Generate an international return label/QR via SendCloud (EU customers) */
+export async function createReturnLabel(payload: {
+  cid: string;
+  email: string;
+  country: string;
+  address: IntlReturnAddress;
+}): Promise<IntlReturnLabel> {
+  const res = await fetch(`${API_BASE}/returns-label`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error(data.error || "Failed to generate return label") as Error & {
+      code?: string;
+    };
+    err.code = data.error;
+    throw err;
+  }
+  return data;
 }
 
 /** Create a Shopify cart and get back the checkout URL */

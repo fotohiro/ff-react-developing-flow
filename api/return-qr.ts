@@ -65,10 +65,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     !address?.street1 ||
     !address?.city ||
     !address?.state ||
-    !address?.zip
+    !address?.zip ||
+    !address?.phone
   ) {
     return res.status(400).json({ error: "Missing required address fields" });
   }
+
+  const phoneDigits = String(address.phone).replace(/\D/g, "");
+  if (phoneDigits.length < 10) {
+    return res.status(400).json({ error: "Invalid phone number" });
+  }
+  // USPS wants a real NANP number; keep last 10 digits.
+  const phone = phoneDigits.slice(-10);
 
   const token = process.env.SHIPPO_API_KEY;
   if (!token) {
@@ -109,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         zip: String(address.zip).trim(),
         country: "US",
         email,
-        phone: address.phone || "0000000000",
+        phone,
       },
       address_to: LAB,
       parcels: [
@@ -165,8 +173,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (tx.status !== "SUCCESS" || !tx.qr_code_url) {
       console.error("[RETURN_QR] Transaction failed", tx.status, tx.messages);
+      const msg = Array.isArray(tx.messages)
+        ? (tx.messages as Array<{ text?: string }>)
+            .map((m) => m.text)
+            .filter(Boolean)
+            .join(" ")
+        : null;
       return res.status(502).json({
-        error: "Failed to purchase QR label",
+        error: msg || "Failed to purchase QR label",
         detail: tx.messages ?? tx.status,
       });
     }

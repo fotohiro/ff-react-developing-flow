@@ -46,18 +46,21 @@ export default function ReturnLabelStep({
     city: "",
     state: "",
     zip: "",
+    phone: "",
   });
 
   const updateField = (field: keyof CustomerAddress, value: string) => {
     setAddress((prev) => ({ ...prev, [field]: value }));
   };
 
+  const phoneDigits = address.phone.replace(/\D/g, "");
   const isFormValid =
     address.name.trim().length > 0 &&
     address.street1.trim().length > 0 &&
     address.city.trim().length > 0 &&
     address.state.length > 0 &&
-    /^\d{5}$/.test(address.zip.trim());
+    /^\d{5}$/.test(address.zip.trim()) &&
+    phoneDigits.length >= 10;
 
   const chooseHaveLabel = () => {
     trackEvent("Chose Existing Label", email, { cid, email });
@@ -79,6 +82,7 @@ export default function ReturnLabelStep({
         street1: address.street1.trim(),
         city: address.city.trim(),
         zip: address.zip.trim(),
+        phone: phoneDigits.slice(-10),
       });
       setQrCodeUrl(result.qrCodeUrl);
       onLabelSourceChange("replacement");
@@ -226,6 +230,15 @@ export default function ReturnLabelStep({
               onChange={(e) =>
                 updateField("zip", e.target.value.replace(/\D/g, "").slice(0, 5))
               }
+              style={formInput}
+            />
+            <input
+              type="tel"
+              inputMode="tel"
+              placeholder="Phone"
+              autoComplete="tel"
+              value={address.phone}
+              onChange={(e) => updateField("phone", e.target.value)}
               style={formInput}
             />
 
