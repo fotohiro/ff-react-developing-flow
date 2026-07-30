@@ -109,7 +109,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         zip: String(address.zip).trim(),
         country: "US",
         email,
-        phone: address.phone || "0000000000",
+        // USPS requires a valid from-phone; use FF Google Voice (not customer).
+        phone: LAB.phone,
       },
       address_to: LAB,
       parcels: [
