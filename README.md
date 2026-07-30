@@ -39,7 +39,7 @@ The customer now lands on this app, and is prompted through a 4-step wizard:
 - **Hosting:** Vercel (static + serverless functions)
 - **Payments:** Shopify Storefront API (cart creation + checkout)
 - **Email tracking:** Klaviyo (event tracking for flow triggers)
-- **Shipping labels:** EasyPost API (USPS return labels)
+- **Shipping labels:** Shippo API (USPS Label Broker QR for new labels); EasyPost retained for legacy printable returns
 - **Image storage:** Vercel Blob (camera-captured label photos)
 
 ## API Routes
@@ -51,7 +51,8 @@ All serverless functions live in `api/` and deploy as Vercel Functions.
 | `/api/prices` | GET | Returns localized variant prices for the visitor's country (geo-detected, no login) |
 | `/api/cart-create` | POST | Creates a Shopify cart with line item properties, optional discount code, and buyer country |
 | `/api/klaviyo-event` | POST | Fires a tracking event to Klaviyo |
-| `/api/replacement-label` | POST | Generates a USPS return label via EasyPost |
+| `/api/return-qr` | POST | Generates a prepaid USPS Label Broker QR via Shippo (customer → BNY) |
+| `/api/replacement-label` | POST | Legacy: printable USPS return label via EasyPost |
 | `/api/upload-label` | POST | Uploads a base64 label image to Vercel Blob, returns CDN URL |
 
 ## Klaviyo Events
