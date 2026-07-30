@@ -26,8 +26,6 @@ export interface CustomerAddress {
   city: string;
   state: string;
   zip: string;
-  /** USPS requires a valid phone on the ship-from address for Label Broker. */
-  phone: string;
 }
 
 /** Request a prepaid USPS Label Broker QR via Shippo (customer → lab). */

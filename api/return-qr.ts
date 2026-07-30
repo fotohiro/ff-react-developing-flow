@@ -65,18 +65,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     !address?.street1 ||
     !address?.city ||
     !address?.state ||
-    !address?.zip ||
-    !address?.phone
+    !address?.zip
   ) {
     return res.status(400).json({ error: "Missing required address fields" });
   }
-
-  const phoneDigits = String(address.phone).replace(/\D/g, "");
-  if (phoneDigits.length < 10) {
-    return res.status(400).json({ error: "Invalid phone number" });
-  }
-  // USPS wants a real NANP number; keep last 10 digits.
-  const phone = phoneDigits.slice(-10);
 
   const token = process.env.SHIPPO_API_KEY;
   if (!token) {
@@ -117,7 +109,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         zip: String(address.zip).trim(),
         country: "US",
         email,
-        phone,
+        // USPS requires a valid from-phone; use FF Google Voice (not customer).
+        phone: LAB.phone,
       },
       address_to: LAB,
       parcels: [
