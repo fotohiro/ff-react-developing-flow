@@ -24,6 +24,7 @@ const VARIANT_ENV_KEYS = {
   wbGallery: "WB_SCANS_VARIANT_ID",
   wbPrints: "WB_PRINTS_VARIANT_ID",
   extraPrints: "EXTRA_PRINTS_VARIANT_ID",
+  prepaidPrints: "PREPAID_PRINTS_VARIANT_ID",
 } as const;
 
 type PriceKey = keyof typeof VARIANT_ENV_KEYS;
@@ -35,6 +36,7 @@ const FALLBACK_PRICES: Record<PriceKey, number> = {
   wbGallery: 79.99,
   wbPrints: 70.0,
   extraPrints: 7.0,
+  prepaidPrints: 7.0,
 };
 
 const CART_MUTATION = `

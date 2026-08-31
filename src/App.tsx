@@ -9,35 +9,48 @@ import FadeIn from "./components/FadeIn";
 import EmailStep from "./components/EmailStep";
 import FormatStep from "./components/FormatStep";
 import ReturnLabelStep from "./components/ReturnLabelStep";
+import IntlReturnStep from "./components/IntlReturnStep";
 import ConfirmStep from "./components/ConfirmStep";
 import type { FormatType } from "./components/FormatStep";
 
-type StepName = "email" | "format" | "returnLabel" | "confirm";
+type StepName = "email" | "format" | "returnLabel" | "intlReturn" | "confirm";
 
 export default function App() {
-  const { cid, wbid, atLab, lt, discount, discountPct, email: emailParam, fmt } = useMemo(getParams, []);
-  const { prices, formatPrice } = usePricing();
+  const { cid, wbid, prepaid, atLab, lt, discount, discountPct, email: emailParam, fmt } = useMemo(getParams, []);
+  const { prices, formatPrice, country } = usePricing();
   const hasToken = !!lt;
   const isWeddingBox = !!wbid;
+  const isPrepaid = prepaid;
+  // Non-US visitors use the SendCloud international return step instead of the
+  // US photo/EasyPost upload step. Country is geo-resolved by the pricing context.
+  const isIntl = country !== "US";
 
   const skipEmail = !!emailParam && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailParam);
   const skipFormat = skipEmail && !!fmt;
 
-  /* Step configuration — adapts to fast-track / at-lab / winback / standard flow */
+  /* Step configuration — adapts to fast-track / at-lab / winback / standard flow.
+     For international sessions the return step (intlReturn) sits right after
+     email and before format, and replaces the US-only upload step. */
   const steps: StepName[] = hasToken
     ? ["format", "confirm"]
     : atLab
       ? (skipEmail ? ["format", "confirm"] : ["email", "format", "confirm"])
-      : skipFormat
-        ? ["returnLabel", "confirm"]
-        : skipEmail
-          ? ["format", "returnLabel", "confirm"]
-          : ["email", "format", "returnLabel", "confirm"];
+      : isIntl
+        ? (skipFormat
+            ? ["intlReturn", "confirm"]
+            : skipEmail
+              ? ["intlReturn", "format", "confirm"]
+              : ["email", "intlReturn", "format", "confirm"])
+        : (skipFormat
+            ? ["returnLabel", "confirm"]
+            : skipEmail
+              ? ["format", "returnLabel", "confirm"]
+              : ["email", "format", "returnLabel", "confirm"]);
 
   /* Wizard state */
   const [stepIdx, setStepIdx] = useState(0);
   const [email, setEmail] = useState(emailParam ?? "");
-  const [format, setFormat] = useState<FormatType | null>(isWeddingBox ? "scans" : fmt ?? null);
+  const [format, setFormat] = useState<FormatType | null>(isWeddingBox || isPrepaid ? "scans" : fmt ?? null);
   const [labelImg, setLabelImg] = useState<string | null>(null);
   const [labelSource, setLabelSource] = useState<"camera" | "replacement" | null>(null);
   const [labelTracking, setLabelTracking] = useState<string | null>(null);
@@ -73,14 +86,17 @@ export default function App() {
 
   const handleFormatNext = () => {
     if (!format) return;
-    const price = isWeddingBox
-      ? formatPrice(prices.wbGallery + printsQty * prices.wbPrints)
-      : format === "prints" && extraPrintsQty > 0
-        ? formatPrice(prices.prints + extraPrintsQty * prices.extraPrints)
-        : formatPrice(prices[format]);
+    const price = isPrepaid
+      ? (printsQty > 0 ? formatPrice(printsQty * prices.prepaidPrints) : "Free")
+      : isWeddingBox
+        ? formatPrice(prices.wbGallery + printsQty * prices.wbPrints)
+        : format === "prints" && extraPrintsQty > 0
+          ? formatPrice(prices.prints + extraPrintsQty * prices.extraPrints)
+          : formatPrice(prices[format]);
     trackEvent("Selected Format", email, {
       cid, email, format, price,
       ...(isWeddingBox ? { weddingBoxId: wbid, printsQty } : {}),
+      ...(isPrepaid ? { prepaid: true, printsQty } : {}),
       ...(extraPrintsQty > 0 ? { extraPrintsQty } : {}),
     });
     goNext();
@@ -88,6 +104,10 @@ export default function App() {
 
   const handleUploadNext = () => {
     trackEvent("Uploaded Label", email, { cid, email, has_label: !!labelImg });
+    goNext();
+  };
+
+  const handleIntlReturnNext = () => {
     goNext();
   };
 
@@ -114,6 +134,7 @@ export default function App() {
             format={format}
             discountPct={discountPct}
             isWeddingBox={isWeddingBox}
+            isPrepaid={isPrepaid}
             printsQty={printsQty}
             onPrintsQtyChange={setPrintsQty}
             extraPrintsQty={extraPrintsQty}
@@ -136,6 +157,15 @@ export default function App() {
             onBack={goBack}
           />
         );
+      case "intlReturn":
+        return (
+          <IntlReturnStep
+            cid={cid}
+            email={email}
+            onNext={handleIntlReturnNext}
+            onBack={goBack}
+          />
+        );
       case "confirm":
         return (
           <ConfirmStep
@@ -149,6 +179,7 @@ export default function App() {
             discountCode={discount}
             discountPct={discountPct}
             weddingBoxId={wbid}
+            isPrepaid={isPrepaid}
             printsQty={printsQty}
             extraPrintsQty={extraPrintsQty}
             onBack={goBack}

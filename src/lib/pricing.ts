@@ -6,6 +6,7 @@ export interface PriceSet {
   wbGallery: number;
   wbPrints: number;
   extraPrints: number;
+  prepaidPrints: number;
 }
 
 /** USD fallback — shown instantly and if the geo/price lookup fails. Keep in sync with Shopify. */
@@ -15,6 +16,7 @@ export const FALLBACK_PRICES: PriceSet = {
   wbGallery: 79.99,
   wbPrints: 70.0,
   extraPrints: 7.0,
+  prepaidPrints: 7.0,
 };
 
 export interface PricingValue {
@@ -25,6 +27,8 @@ export interface PricingValue {
   loading: boolean;
   /** Format a numeric amount in the resolved currency (e.g. "$9.99", "9,99 €") */
   formatPrice: (amount: number) => string;
+  /** Re-resolve prices for an explicitly chosen country (e.g. from the return-country dropdown) */
+  setCountry: (country: string) => void;
 }
 
 export const PricingContext = createContext<PricingValue | null>(null);

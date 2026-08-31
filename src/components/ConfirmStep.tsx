@@ -16,6 +16,7 @@ interface Props {
   discountCode?: string | null;
   discountPct?: number | null;
   weddingBoxId?: string | null;
+  isPrepaid?: boolean;
   printsQty?: number;
   extraPrintsQty?: number;
   onBack: () => void;
@@ -37,6 +38,7 @@ export default function ConfirmStep({
   discountCode,
   discountPct,
   weddingBoxId,
+  isPrepaid,
   printsQty = 0,
   extraPrintsQty = 0,
   onBack,
@@ -45,6 +47,7 @@ export default function ConfirmStep({
   const WB_GALLERY_PRICE = prices.wbGallery;
   const WB_PRINTS_PRICE = prices.wbPrints;
   const EXTRA_PRINTS_PRICE = prices.extraPrints;
+  const PREPAID_PRINTS_PRICE = prices.prepaidPrints;
 
   const [loading, setLoading] = useState(false);
   const isWeddingBox = !!weddingBoxId;
@@ -64,9 +67,11 @@ export default function ConfirmStep({
       }
 
       const basePrice = salePrice ?? info.price;
-      const totalPrice = isWeddingBox
-        ? WB_GALLERY_PRICE + printsQty * WB_PRINTS_PRICE
-        : basePrice + extraPrintsQty * EXTRA_PRINTS_PRICE;
+      const totalPrice = isPrepaid
+        ? printsQty * PREPAID_PRINTS_PRICE
+        : isWeddingBox
+          ? WB_GALLERY_PRICE + printsQty * WB_PRINTS_PRICE
+          : basePrice + extraPrintsQty * EXTRA_PRINTS_PRICE;
 
       const checkoutUrl = await createCart({
         format,
@@ -79,6 +84,7 @@ export default function ConfirmStep({
         ...(labelTracking ? { labelTracking } : {}),
         ...(discountCode ? { discountCode } : {}),
         ...(weddingBoxId ? { weddingBoxId, printsQty } : {}),
+        ...(isPrepaid ? { prepaid: true, printsQty } : {}),
         ...(extraPrintsQty > 0 ? { extraPrintsQty } : {}),
       });
 
@@ -86,9 +92,10 @@ export default function ConfirmStep({
       trackEvent("Completed Checkout", email, {
         cid,
         format,
-        price: fmt(totalPrice),
+        price: isPrepaid && printsQty === 0 ? "Free" : fmt(totalPrice),
         checkout_url: checkoutUrl,
         ...(weddingBoxId ? { weddingBoxId, printsQty } : {}),
+        ...(isPrepaid ? { prepaid: true, printsQty } : {}),
         ...(labelSource === "replacement" && labelImg
           ? { labelUrl: labelImg }
           : labelSource === "camera" && hostedLabelUrl
@@ -122,7 +129,31 @@ export default function ConfirmStep({
           <span style={rowValue}>#{cid}</span>
         </div>
 
-        {isWeddingBox ? (
+        {isPrepaid ? (
+          <>
+            <div style={divider} />
+            <div style={row}>
+              <span style={rowLabel}>Digital Scans</span>
+              <span style={rowValue}>Free</span>
+            </div>
+            {printsQty > 0 && (
+              <>
+                <div style={divider} />
+                <div style={row}>
+                  <span style={rowLabel}>{printsQty}× Prints</span>
+                  <span style={rowValue}>{fmt(printsQty * PREPAID_PRINTS_PRICE)}</span>
+                </div>
+                <div style={divider} />
+                <div style={row}>
+                  <span style={{ ...rowLabel, fontWeight: 600 }}>Total</span>
+                  <span style={{ ...rowValue, fontWeight: 600 }}>
+                    {fmt(printsQty * PREPAID_PRINTS_PRICE)}
+                  </span>
+                </div>
+              </>
+            )}
+          </>
+        ) : isWeddingBox ? (
           <>
             <div style={divider} />
             <div style={row}>

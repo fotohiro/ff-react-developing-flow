@@ -6,6 +6,7 @@ export function getParams() {
   return {
     cid: sp.get("cid") ?? "0000",
     wbid: sp.get("wbid"),                       // wedding box ID
+    prepaid: sp.get("prepaid") === "true",       // prepaid redemption — free scans + optional prints
     atLab: sp.get("at_lab") === "true",          // camera already at lab — skip return label
     lt: sp.get("lt"),                            // label token — null if not present
     discount: sp.get("discount"),                // winback discount code

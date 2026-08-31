@@ -67,6 +67,43 @@ export async function requestReturnQr(
   }
 }
 
+/** Sender address for an international (EU) return label */
+export interface IntlReturnAddress {
+  name: string;
+  street: string;
+  houseNumber: string;
+  city: string;
+  postalCode: string;
+  phone: string;
+}
+
+/** Result of an international return label request (see api/returns-label.ts) */
+export interface IntlReturnLabel {
+  labelUrl: string | null;
+  qrCodeUrl: string | null;
+  trackingNumber: string | null;
+  carrier: string;
+  paperless: boolean;
+  stub?: boolean;
+}
+
+/** Create an international (EU) return label/QR via SendCloud (customer → Paris hub). */
+export async function createReturnLabel(payload: {
+  cid: string;
+  email: string;
+  country: string;
+  address: IntlReturnAddress;
+}): Promise<IntlReturnLabel> {
+  const res = await fetch(`${API_BASE}/returns-label`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || data.error || "Failed to create return label");
+  return data;
+}
+
 
 const MAX_LABEL_DIMENSION = 1200;
 const LABEL_JPEG_QUALITY = 0.8;
@@ -125,6 +162,7 @@ export async function createCart(payload: {
   labelTracking?: string;
   discountCode?: string;
   weddingBoxId?: string;
+  prepaid?: boolean;
   printsQty?: number;
   extraPrintsQty?: number;
 }): Promise<string> {

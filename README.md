@@ -11,7 +11,7 @@ The customer receives a camera with a unique CameraID ("CID"). When they're read
 When the customer scans the QR code, they hit a Shopify URL Redirect (set in Shopify Admin). fotofoto.io/products/developing redirects to a Vercel router app (ff-camera-router). The router app determines which Shopify product to route the customer to based on their camera data:
 
 1. **Wedding Box** — If the scanned camera document has a weddingBoxID field populated with "WB..." -> wedding-box-developing
-2. **Prepaid Developing** — If the scanned camera document has prepaid == true -> developing-prepaid-redeem
+2. **Prepaid Developing** — If the scanned camera document has prepaid == true -> this app with `?prepaid=true` (see [Prepaid Redemption](#prepaid-redemption))
 3. **Standard Developing** — Else -> developing-standard
 4. **Redirect to lab.fotofoto.io** — developing-standard has a 302 redirect to lab.fotofoto.io, which is where this app (ff-react-developing-flow) lives.
 
@@ -27,6 +27,7 @@ The customer now lands on this app, and is prompted through a 4-step wizard:
 | Param | Description | Example |
 |-------|-------------|---------|
 | `cid` | Camera ID (required) | `cid=5847` |
+| `prepaid` | Prepaid redemption flow — free digital scans + optional prints add-on | `prepaid=true` |
 | `lt` | Label token — skips email + label steps (fast-track flow) | `lt=abc123` |
 | `email` | Pre-fills email field (used in Klaviyo winback emails) | `email=user@example.com` |
 | `discount` | Shopify discount code, auto-applied at checkout | `discount=WINBACK15` |
@@ -49,6 +50,7 @@ All serverless functions live in `api/` and deploy as Vercel Functions.
 | Route | Method | Description |
 |-------|--------|-------------|
 | `/api/prices` | GET | Returns localized variant prices for the visitor's country (geo-detected, no login) |
+| `/api/returns-label` | POST | Generates a SendCloud international (EU) return label/QR for the customer's country |
 | `/api/cart-create` | POST | Creates a Shopify cart with line item properties, optional discount code, and buyer country |
 | `/api/klaviyo-event` | POST | Fires a tracking event to Klaviyo |
 | `/api/return-qr` | POST | Generates a prepaid USPS Label Broker QR via Shippo (customer → BNY) |
@@ -85,6 +87,34 @@ Prices are **not hardcoded** — they're fetched live from Shopify and shown in 
 
 > **Prerequisite:** Localized (non-USD) prices depend on **Shopify Markets** being configured for the target regions. Markets is live (EUR for the EU, GBP for the UK, CAD for Canada, etc.). Note that "The Wedding Box - Development" and "Extra Prints" are not yet published to the international catalogs — the cart probe still localizes them via currency conversion, but publishing them keeps other storefront surfaces consistent.
 
+## International Returns (EU)
+
+Non-US visitors get a different return step. Instead of photographing a US/USPS label (`UploadStep`), they see `IntlReturnStep` — inserted after email and before format — which collects their country + address and generates a **SendCloud** return label/QR shipping back to the FOTO FOTO hub in Paris.
+
+**Country detection & gating:** the country comes from the same geo signal as pricing (`x-vercel-ip-country`, see [Localized Pricing](#localized-pricing)). If the visitor's country isn't `US`, the international return step is used. Supported EU origins in v1 are **FR, IT, GR**; any other non-US country (including Turkey) shows a "not available yet — contact us" message.
+
+**Carrier per origin** (all return to the Paris hub; intra-EU, no customs docs):
+
+| Origin | Carrier | Experience |
+|--------|---------|------------|
+| FR | Mondial Relay (Point Relais Retour QR) | Paperless QR — drop at any relay, no printing |
+| IT | Chronopost 2Shop Retour Europe | Printable label |
+| GR | Chronopost 2Shop Retour Europe | Printable label |
+
+Carrier selection is driven by a per-country map in `api/returns-label.ts` keyed to SendCloud shipping method IDs (env vars). If SendCloud keys or a method ID are missing, the route runs in **stub mode** (placeholder QR/label) so the flow stays testable.
+
+**Tracking (v1):** tracking is intentionally **not** wired back to the Shopify order for EU returns — the QR/label is generated and shown/emailed to the customer only. The route already returns a tracking number, leaving a clean seam to persist it (or add a SendCloud webhook) later.
+
+**Testing:** append `?country=FR` (or `IT`/`GR`/`DE`) to preview the international flow without a VPN. `DE` (unsupported) exercises the "not available" state.
+
+## Prepaid Redemption
+
+Cameras flagged `prepaid == true` in Firestore are routed by `ff-camera-router` to this app with `?prepaid=true`. In this flow the customer redeems their prepaid **Digital Scans for free** and may optionally **add prints** (a paid qty add-on). It mirrors the Wedding Box pattern (fixed included base + optional prints), but the base is $0.
+
+- Base line item: `PREPAID_SCANS_VARIANT_ID` (a $0 variant) — always added so the Shopify fulfillment webhook still creates the order/camera records and marks the camera developed.
+- Prints add-on: `PREPAID_PRINTS_VARIANT_ID`, quantity chosen in the Format step, priced the same as Extra Prints.
+- Return-label steps are unchanged — the physical camera is still returned. If the router appends `&at_lab=true` (courier-return cameras), the return step is skipped as usual.
+
 ## WebView Detection
 
 The app detects in-app browsers (Gmail, Instagram, Outlook, etc.) and adapts the label photo step to show a "Select from photos" flow instead of opening the camera directly, which fails in WebViews on iOS.
@@ -103,6 +133,14 @@ PRINTS_VARIANT_ID=         # Shopify product variant ID for Prints + Scans
 WB_SCANS_VARIANT_ID=       # Wedding Box digital gallery variant
 WB_PRINTS_VARIANT_ID=      # Wedding Box prints add-on variant
 EXTRA_PRINTS_VARIANT_ID=   # Extra prints add-on variant (standard developing)
+PREPAID_SCANS_VARIANT_ID=  # Prepaid redemption base variant ($0 digital scans)
+PREPAID_PRINTS_VARIANT_ID= # Prepaid prints add-on variant
+SENDCLOUD_PUBLIC_KEY=      # SendCloud API public key (EU return labels)
+SENDCLOUD_SECRET_KEY=      # SendCloud API secret key
+SENDCLOUD_METHOD_FR=       # Shipping method id per origin (FR/IT/GR)
+SENDCLOUD_METHOD_IT=
+SENDCLOUD_METHOD_GR=
+FF_RETURN_STREET=          # EU return hub address (defaults to 12 rue des Halles, 75001 Paris)
 BLOB_READ_WRITE_TOKEN=     # Vercel Blob store token (set automatically on Vercel)
 ```
 

@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { format, cid, email, country, labelUrl, labelToken, labelTracking, weddingBoxId, printsQty, extraPrintsQty, discountCode } = req.body;
+  const { format, cid, email, country, labelUrl, labelToken, labelTracking, weddingBoxId, prepaid, printsQty, extraPrintsQty, discountCode } = req.body;
 
   // Validate the country so the checkout localizes to the same currency the
   // customer was shown. Invalid/empty → let Shopify use its default market.
@@ -32,6 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const wbGalleryVariantId = process.env.WB_SCANS_VARIANT_ID;
   const wbPrintsVariantId = process.env.WB_PRINTS_VARIANT_ID;
   const extraPrintsVariantId = process.env.EXTRA_PRINTS_VARIANT_ID;
+  const prepaidScansVariantId = process.env.PREPAID_SCANS_VARIANT_ID;
+  const prepaidPrintsVariantId = process.env.PREPAID_PRINTS_VARIANT_ID;
 
   const requiredEnv = [
     !storefrontToken && "SHOPIFY_STOREFRONT_TOKEN",
@@ -42,6 +44,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (weddingBoxId) {
     if (!wbGalleryVariantId) requiredEnv.push("WB_SCANS_VARIANT_ID");
     if (printsQty > 0 && !wbPrintsVariantId) requiredEnv.push("WB_PRINTS_VARIANT_ID");
+  }
+  if (prepaid) {
+    if (!prepaidScansVariantId) requiredEnv.push("PREPAID_SCANS_VARIANT_ID");
+    if (printsQty > 0 && !prepaidPrintsVariantId) requiredEnv.push("PREPAID_PRINTS_VARIANT_ID");
   }
   if (extraPrintsQty > 0 && !extraPrintsVariantId) {
     requiredEnv.push("EXTRA_PRINTS_VARIANT_ID");
@@ -94,7 +100,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Build cart lines — wedding box orders have a base gallery + optional prints add-on
   let lines;
-  if (weddingBoxId && wbGalleryVariantId) {
+  if (prepaid && prepaidScansVariantId) {
+    // Prepaid redemption — $0 digital scans base + optional prints add-on
+    lines = [
+      {
+        merchandiseId: `gid://shopify/ProductVariant/${prepaidScansVariantId}`,
+        quantity: 1,
+        ...(attributes.length > 0 ? { attributes } : {}),
+      },
+      ...(printsQty > 0 && prepaidPrintsVariantId
+        ? [{
+            merchandiseId: `gid://shopify/ProductVariant/${prepaidPrintsVariantId}`,
+            quantity: printsQty,
+            attributes: [{ key: "camera_id", value: cid }],
+          }]
+        : []),
+    ];
+  } else if (weddingBoxId && wbGalleryVariantId) {
     const baseAttributes = attributes;
     lines = [
       {
@@ -141,7 +163,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const apiUrl = `https://${storeDomain}/api/2024-10/graphql.json`;
 
-    console.log(`[CART] Creating cart: format=${format}, cid=${cid}, attrs=${attributes.length}${weddingBoxId ? `, wb=${weddingBoxId}, prints=${printsQty || 0}` : ""}${extraPrintsQty > 0 ? `, extraPrints=${extraPrintsQty}` : ""}, lines=${lines.length}`);
+    console.log(`[CART] Creating cart: format=${format}, cid=${cid}, attrs=${attributes.length}${weddingBoxId ? `, wb=${weddingBoxId}, prints=${printsQty || 0}` : ""}${prepaid ? `, prepaid=true, prints=${printsQty || 0}` : ""}${extraPrintsQty > 0 ? `, extraPrints=${extraPrintsQty}` : ""}, lines=${lines.length}`);
 
     const response = await fetch(apiUrl, {
       method: "POST",

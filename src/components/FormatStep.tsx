@@ -9,6 +9,7 @@ interface Props {
   format: FormatType | null;
   discountPct?: number | null;
   isWeddingBox?: boolean;
+  isPrepaid?: boolean;
   printsQty?: number;
   onPrintsQtyChange?: (qty: number) => void;
   extraPrintsQty?: number;
@@ -27,6 +28,7 @@ export default function FormatStep({
   format,
   discountPct,
   isWeddingBox,
+  isPrepaid,
   printsQty = 0,
   onPrintsQtyChange,
   extraPrintsQty = 0,
@@ -39,6 +41,81 @@ export default function FormatStep({
   const WB_GALLERY_PRICE = prices.wbGallery;
   const WB_PRINTS_PRICE = prices.wbPrints;
   const EXTRA_PRINTS_PRICE = prices.extraPrints;
+  const PREPAID_PRINTS_PRICE = prices.prepaidPrints;
+
+  if (isPrepaid) {
+    return (
+      <div style={container}>
+        <BackButton onClick={onBack} />
+
+        <h1 style={headline}>
+          Redeem your{"\n"}developing.
+        </h1>
+
+        {/* Base: Digital Scans — prepaid, always included */}
+        <div style={{ ...card, backgroundColor: "var(--color-selected)", borderColor: "var(--color-border)" }}>
+          <span style={cardLabel}>Digital Scans</span>
+          <span style={cardPrice}>Free</span>
+        </div>
+
+        {/* Add-on: Prints */}
+        <div style={addonSection}>
+          <button
+            type="button"
+            onClick={() => {
+              if (printsQty > 0) {
+                onPrintsQtyChange?.(0);
+              } else {
+                onPrintsQtyChange?.(1);
+              }
+            }}
+            style={{
+              ...card,
+              backgroundColor: printsQty > 0 ? "var(--color-selected)" : "var(--color-bg)",
+              borderColor: "var(--color-border)",
+            }}
+          >
+            <span style={cardLabel}>+ Add Prints</span>
+            <span style={cardPrice}>{fmt(PREPAID_PRINTS_PRICE)}/ea</span>
+          </button>
+
+          {/* Quantity selector — visible when prints enabled */}
+          {printsQty > 0 && (
+            <div style={qtyRow}>
+              <span style={qtyLabel}>Quantity</span>
+              <div style={qtyControls}>
+                <button
+                  type="button"
+                  style={qtyBtn}
+                  onClick={() => onPrintsQtyChange?.(Math.max(1, printsQty - 1))}
+                >
+                  <span style={qtySymbol}>−</span>
+                </button>
+                <span style={qtyValue}>{printsQty}</span>
+                <button
+                  type="button"
+                  style={qtyBtn}
+                  onClick={() => onPrintsQtyChange?.(printsQty + 1)}
+                >
+                  <span style={qtySymbol}>+</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Total */}
+        {printsQty > 0 && (
+          <div style={totalRow}>
+            <span style={totalLabel}>Total</span>
+            <span style={totalValue}>{fmt(printsQty * PREPAID_PRINTS_PRICE)}</span>
+          </div>
+        )}
+
+        <Button onClick={onNext}>Continue</Button>
+      </div>
+    );
+  }
 
   if (isWeddingBox) {
     return (
