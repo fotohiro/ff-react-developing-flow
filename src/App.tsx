@@ -53,9 +53,14 @@ function DevelopingFlow({ cid }: { cid: string }) {
   // Set when the customer taps "Returning in the US?": they'll post it back with the US label.
   const [returnInUS, setReturnInUS] = useState(false);
   // Malaysia-store sessions return to the Malaysian lab. Other non-US visitors use the
-  // SendCloud international return step instead of the US photo/EasyPost upload step.
+  // SendCloud international return step instead of the US photo/EasyPost upload step;
+  // US-store visitors in Malaysia are posting it back in the US (they can switch to MY).
   const earlyReturnStep: StepName | null =
-    market === "my" ? "myReturn" : country !== "US" && !returnInUS ? "intlReturn" : null;
+    market === "my"
+      ? "myReturn"
+      : country !== "US" && country !== "MY" && !returnInUS
+        ? "intlReturn"
+        : null;
 
   const skipEmail = !!emailParam && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailParam);
   const skipFormat = skipEmail && !!fmt;
@@ -107,6 +112,9 @@ function DevelopingFlow({ cid }: { cid: string }) {
         : null;
 
   const switchMarket = (next: Market) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("market", next);
+    window.history.replaceState(null, "", url);
     setReturnInUS(next === "us");
     setMarket(next);
     setStepIdx(0);
