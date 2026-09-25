@@ -19,11 +19,18 @@ export const FALLBACK_PRICES: PriceSet = {
   prepaidPrints: 7.0,
 };
 
+/** Return market = which store checks out the developing order (and which lab receives the roll). */
+export type Market = "us" | "my";
+
 export interface PricingValue {
   prices: PriceSet;
   currencyCode: string;
   /** ISO 3166-1 alpha-2 country the prices were resolved for (e.g. "US", "DE") */
   country: string;
+  /** Store the prices were resolved against, as confirmed by the server */
+  market: Market;
+  /** Re-resolve prices against another return market's store */
+  setMarket: (market: Market) => void;
   loading: boolean;
   /** Format a numeric amount in the resolved currency (e.g. "$9.99", "9,99 €") */
   formatPrice: (amount: number) => string;

@@ -3,7 +3,7 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
 import { getParams } from "./lib/params";
 import { trackEvent } from "./lib/api";
-import { usePricing } from "./lib/pricing";
+import { usePricing, type Market } from "./lib/pricing";
 import ProgressBar from "./components/ProgressBar";
 import FadeIn from "./components/FadeIn";
 import EmailStep from "./components/EmailStep";
@@ -11,36 +11,68 @@ import FormatStep from "./components/FormatStep";
 import ReturnLabelStep from "./components/ReturnLabelStep";
 import IntlReturnStep from "./components/IntlReturnStep";
 import ConfirmStep from "./components/ConfirmStep";
+import CameraIdStep from "./components/CameraIdStep";
+import MyReturnStep from "./components/MyReturnStep";
 import type { FormatType } from "./components/FormatStep";
 
-type StepName = "email" | "format" | "returnLabel" | "intlReturn" | "confirm";
+type StepName = "email" | "format" | "returnLabel" | "intlReturn" | "myReturn" | "confirm";
 
 export default function App() {
-  const { cid, wbid, prepaid, atLab, lt, discount, discountPct, email: emailParam, fmt } = useMemo(getParams, []);
-  const { prices, formatPrice, country } = usePricing();
+  const [cid, setCid] = useState(() => getParams().cid);
+
+  if (!cid) {
+    const handleCid = (next: string) => {
+      const url = new URL(window.location.href);
+      url.searchParams.set("cid", next);
+      window.history.replaceState(null, "", url);
+      setCid(next);
+    };
+    return (
+      <div style={shell}>
+        <div style={logoWrap}>
+          <img src="/ff-logotype.svg" alt="FOTOFOTO" style={logoImg} />
+        </div>
+        <div style={content}>
+          <CameraIdStep onSubmit={handleCid} />
+        </div>
+        <SpeedInsights />
+        <Analytics />
+      </div>
+    );
+  }
+
+  return <DevelopingFlow cid={cid} />;
+}
+
+function DevelopingFlow({ cid }: { cid: string }) {
+  const { wbid, prepaid, atLab, lt, discount, discountPct, email: emailParam, fmt } = useMemo(() => getParams(), []);
+  const { prices, formatPrice, country, market, loading: pricingLoading, setMarket } = usePricing();
   const hasToken = !!lt;
   const isWeddingBox = !!wbid;
   const isPrepaid = prepaid;
-  // Non-US visitors use the SendCloud international return step instead of the
-  // US photo/EasyPost upload step. Country is geo-resolved by the pricing context.
-  const isIntl = country !== "US";
+  // Set when the customer taps "Returning in the US?": they'll post it back with the US label.
+  const [returnInUS, setReturnInUS] = useState(false);
+  // Malaysia-store sessions return to the Malaysian lab. Other non-US visitors use the
+  // SendCloud international return step instead of the US photo/EasyPost upload step.
+  const earlyReturnStep: StepName | null =
+    market === "my" ? "myReturn" : country !== "US" && !returnInUS ? "intlReturn" : null;
 
   const skipEmail = !!emailParam && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailParam);
   const skipFormat = skipEmail && !!fmt;
 
   /* Step configuration — adapts to fast-track / at-lab / winback / standard flow.
-     For international sessions the return step (intlReturn) sits right after
+     For international and Malaysia sessions the return step sits right after
      email and before format, and replaces the US-only upload step. */
   const steps: StepName[] = hasToken
     ? ["format", "confirm"]
     : atLab
       ? (skipEmail ? ["format", "confirm"] : ["email", "format", "confirm"])
-      : isIntl
+      : earlyReturnStep
         ? (skipFormat
-            ? ["intlReturn", "confirm"]
+            ? [earlyReturnStep, "confirm"]
             : skipEmail
-              ? ["intlReturn", "format", "confirm"]
-              : ["email", "intlReturn", "format", "confirm"])
+              ? [earlyReturnStep, "format", "confirm"]
+              : ["email", earlyReturnStep, "format", "confirm"])
         : (skipFormat
             ? ["returnLabel", "confirm"]
             : skipEmail
@@ -64,6 +96,21 @@ export default function App() {
   }, []);
 
   const currentStep = steps[stepIdx];
+
+  /* Store switch: Malaysia sessions can fall back to the US; US-store visitors in Malaysia can switch over. */
+  const switchTarget: Market | null = pricingLoading
+    ? null
+    : market === "my"
+      ? "us"
+      : country === "MY"
+        ? "my"
+        : null;
+
+  const switchMarket = (next: Market) => {
+    setReturnInUS(next === "us");
+    setMarket(next);
+    setStepIdx(0);
+  };
 
   const goNext = () => {
     if (stepIdx < steps.length - 1) setStepIdx(stepIdx + 1);
@@ -166,6 +213,8 @@ export default function App() {
             onBack={goBack}
           />
         );
+      case "myReturn":
+        return <MyReturnStep cid={cid} onBack={goBack} />;
       case "confirm":
         return (
           <ConfirmStep
@@ -207,6 +256,12 @@ export default function App() {
         <div style={content}>{renderStep()}</div>
       </FadeIn>
 
+      {switchTarget && currentStep !== "confirm" && (
+        <button type="button" style={marketSwitch} onClick={() => switchMarket(switchTarget)}>
+          {switchTarget === "us" ? "Returning in the US?" : "Returning in Malaysia?"}
+        </button>
+      )}
+
       <SpeedInsights />
       <Analytics />
     </div>
@@ -238,4 +293,17 @@ const content: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   paddingTop: 10,
+};
+
+const marketSwitch: React.CSSProperties = {
+  fontFamily: "var(--font-body)",
+  fontSize: 15,
+  color: "var(--color-text-secondary)",
+  textDecoration: "underline",
+  background: "none",
+  border: "none",
+  padding: "24px var(--page-padding) 32px",
+  cursor: "pointer",
+  alignSelf: "center",
+  WebkitTapHighlightColor: "transparent",
 };

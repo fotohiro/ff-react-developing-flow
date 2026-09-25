@@ -1,18 +1,20 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { buyerCountryFor, isValidCid, marketEnv, resolveMarket, storeFor } from "./_markets.js";
 
 /**
  * POST /api/cart-create
  * Create a Shopify cart via Storefront API and return checkout URL
  *
- * Body: { format: "scans"|"prints", cid: string, email: string, labelUrl?: string, labelToken?: string, labelTracking?: string, weddingBoxId?: string }
- * Returns: { checkoutUrl: string }
+ * Body: { format: "scans"|"prints", cid: string, email: string, market?: "us"|"my", labelUrl?: string, labelToken?: string, labelTracking?: string, weddingBoxId?: string }
+ * Returns: { checkoutUrl: string, market: "us"|"my" }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { format, cid, email, country, labelUrl, labelToken, labelTracking, weddingBoxId, prepaid, printsQty, extraPrintsQty, discountCode } = req.body;
+  const { format, cid, email, country, market: requestedMarket, labelUrl, labelToken, labelTracking, weddingBoxId, prepaid, printsQty, extraPrintsQty, discountCode } = req.body;
+  const market = resolveMarket(requestedMarket);
 
   // Validate the country so the checkout localizes to the same currency the
   // customer was shown. Invalid/empty → let Shopify use its default market.
@@ -20,20 +22,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     typeof country === "string" && /^[A-Z]{2}$/.test(country.toUpperCase())
       ? country.toUpperCase()
       : undefined;
+  const buyerCountry = buyerCountryFor(market, countryCode);
 
   if (!format || !cid || !email) {
     return res.status(400).json({ error: "Missing required fields" });
   }
+  if (!isValidCid(cid)) {
+    return res.status(400).json({ error: "Invalid camera ID" });
+  }
 
-  const storefrontToken = process.env.SHOPIFY_STOREFRONT_TOKEN;
-  const storeDomain = process.env.SHOPIFY_STORE_DOMAIN || "foto-foto-foto.myshopify.com";
-  const scansVariantId = process.env.SCANS_VARIANT_ID;
-  const printsVariantId = process.env.PRINTS_VARIANT_ID;
-  const wbGalleryVariantId = process.env.WB_SCANS_VARIANT_ID;
-  const wbPrintsVariantId = process.env.WB_PRINTS_VARIANT_ID;
-  const extraPrintsVariantId = process.env.EXTRA_PRINTS_VARIANT_ID;
-  const prepaidScansVariantId = process.env.PREPAID_SCANS_VARIANT_ID;
-  const prepaidPrintsVariantId = process.env.PREPAID_PRINTS_VARIANT_ID;
+  const { domain: storeDomain, storefrontToken } = storeFor(market);
+  const scansVariantId = marketEnv(market, "SCANS_VARIANT_ID");
+  const printsVariantId = marketEnv(market, "PRINTS_VARIANT_ID");
+  const wbGalleryVariantId = marketEnv(market, "WB_SCANS_VARIANT_ID");
+  const wbPrintsVariantId = marketEnv(market, "WB_PRINTS_VARIANT_ID");
+  const extraPrintsVariantId = marketEnv(market, "EXTRA_PRINTS_VARIANT_ID");
+  const prepaidScansVariantId = marketEnv(market, "PREPAID_SCANS_VARIANT_ID");
+  const prepaidPrintsVariantId = marketEnv(market, "PREPAID_PRINTS_VARIANT_ID");
 
   const requiredEnv = [
     !storefrontToken && "SHOPIFY_STOREFRONT_TOKEN",
@@ -54,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (requiredEnv.length > 0) {
-    console.error(`[CART] Missing env vars: ${requiredEnv.join(", ")}`);
+    console.error(`[CART] Missing env vars for market ${market}: ${requiredEnv.join(", ")}`);
     return res.status(500).json({
       error: `Server misconfigured — missing: ${requiredEnv.join(", ")}`,
     });
@@ -156,14 +161,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     input: {
       lines,
       ...(discountCode ? { discountCodes: [discountCode] } : {}),
-      ...(countryCode ? { buyerIdentity: { countryCode } } : {}),
+      ...(buyerCountry ? { buyerIdentity: { countryCode: buyerCountry } } : {}),
     },
   };
 
   try {
     const apiUrl = `https://${storeDomain}/api/2024-10/graphql.json`;
 
-    console.log(`[CART] Creating cart: format=${format}, cid=${cid}, attrs=${attributes.length}${weddingBoxId ? `, wb=${weddingBoxId}, prints=${printsQty || 0}` : ""}${prepaid ? `, prepaid=true, prints=${printsQty || 0}` : ""}${extraPrintsQty > 0 ? `, extraPrints=${extraPrintsQty}` : ""}, lines=${lines.length}`);
+    console.log(`[CART] Creating cart: market=${market}, format=${format}, cid=${cid}, attrs=${attributes.length}${weddingBoxId ? `, wb=${weddingBoxId}, prints=${printsQty || 0}` : ""}${prepaid ? `, prepaid=true, prints=${printsQty || 0}` : ""}${extraPrintsQty > 0 ? `, extraPrints=${extraPrintsQty}` : ""}, lines=${lines.length}`);
 
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -207,7 +212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log("[CART] Checkout URL created:", cart.checkoutUrl);
-    return res.status(200).json({ checkoutUrl: cart.checkoutUrl });
+    return res.status(200).json({ checkoutUrl: cart.checkoutUrl, market });
   } catch (err) {
     console.error("[CART] Cart creation failed:", err);
     return res.status(500).json({
