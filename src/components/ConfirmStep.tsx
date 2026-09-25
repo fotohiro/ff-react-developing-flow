@@ -43,7 +43,7 @@ export default function ConfirmStep({
   extraPrintsQty = 0,
   onBack,
 }: Props) {
-  const { prices, formatPrice: fmt, country } = usePricing();
+  const { prices, formatPrice: fmt, country, market } = usePricing();
   const WB_GALLERY_PRICE = prices.wbGallery;
   const WB_PRINTS_PRICE = prices.wbPrints;
   const EXTRA_PRINTS_PRICE = prices.extraPrints;
@@ -78,6 +78,7 @@ export default function ConfirmStep({
         cid,
         email,
         country,
+        market,
         ...(labelToken
           ? { labelToken }
           : { labelUrl: hostedLabelUrl ?? labelImg ?? undefined }),

@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { buyerCountryFor, marketEnv, resolveMarket, storeFor } from "./_markets.js";
 
 /**
  * GET /api/prices
@@ -15,7 +16,10 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
  * conversion. Reading the cart's per-line cost therefore gives the exact price
  * the customer will be charged at checkout, guaranteeing display == checkout.
  *
- * Returns: { country, currencyCode, prices, fallback }
+ * `?market=us|my` selects the store (defaults to MY for MY visitors, else US).
+ * The response's `market` is the store actually used (unconfigured markets fall back to US).
+ *
+ * Returns: { country, market, currencyCode, prices, fallback }
  */
 
 const VARIANT_ENV_KEYS = {
@@ -73,16 +77,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const headerCountry = (req.headers["x-vercel-ip-country"] as string) || "";
   const raw = (override || headerCountry).toUpperCase();
   const country = /^[A-Z]{2}$/.test(raw) ? raw : "US";
+  const requestedMarket =
+    typeof req.query.market === "string" ? req.query.market : country === "MY" ? "my" : "us";
+  const market = resolveMarket(requestedMarket);
 
-  const storefrontToken = process.env.SHOPIFY_STOREFRONT_TOKEN;
-  const storeDomain =
-    process.env.SHOPIFY_STORE_DOMAIN || "foto-foto-foto.myshopify.com";
+  const { domain: storeDomain, storefrontToken } = storeFor(market);
 
   // Map each configured variant to its price key
   const idToKey = new Map<string, PriceKey>();
   const lines: { merchandiseId: string; quantity: number }[] = [];
   (Object.keys(VARIANT_ENV_KEYS) as PriceKey[]).forEach((key) => {
-    const variantId = process.env[VARIANT_ENV_KEYS[key]];
+    const variantId = marketEnv(market, VARIANT_ENV_KEYS[key]);
     if (variantId) {
       const gid = `gid://shopify/ProductVariant/${variantId}`;
       idToKey.set(gid, key);
@@ -97,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!storefrontToken || lines.length === 0) {
     return res
       .status(200)
-      .json({ country, currencyCode, prices, fallback: true });
+      .json({ country, market, currencyCode, prices, fallback: true });
   }
 
   try {
@@ -110,7 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       body: JSON.stringify({
         query: CART_MUTATION,
-        variables: { input: { lines, buyerIdentity: { countryCode: country } } },
+        variables: { input: { lines, buyerIdentity: { countryCode: buyerCountryFor(market, country) } } },
       }),
     });
 
@@ -119,7 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error(`[PRICES] Shopify API error (${response.status}):`, detail);
       return res
         .status(200)
-        .json({ country, currencyCode, prices, fallback: true });
+        .json({ country, market, currencyCode, prices, fallback: true });
     }
 
     const data = await response.json();
@@ -128,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error("[PRICES] Cart errors:", errors);
       return res
         .status(200)
-        .json({ country, currencyCode, prices, fallback: true });
+        .json({ country, market, currencyCode, prices, fallback: true });
     }
 
     const nodes: Array<{
@@ -153,11 +158,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res
       .status(200)
-      .json({ country, currencyCode, prices, fallback: matched === 0 });
+      .json({ country, market, currencyCode, prices, fallback: matched === 0 });
   } catch (err) {
     console.error("[PRICES] Lookup failed:", err);
     return res
       .status(200)
-      .json({ country, currencyCode, prices, fallback: true });
+      .json({ country, market, currencyCode, prices, fallback: true });
   }
 }
