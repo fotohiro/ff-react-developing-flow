@@ -142,7 +142,7 @@ function DevelopingFlow({ cid }: { cid: string }) {
   const handleFormatNext = () => {
     if (!format) return;
     const price = isPrepaid
-      ? (printsQty > 0 ? formatPrice(printsQty * prices.prepaidPrints) : "Free")
+      ? (printsQty > 0 ? formatPrice(printsQty * (isWeddingBox ? prices.wbPrints : prices.prepaidPrints)) : "Free")
       : isWeddingBox
         ? formatPrice(prices.wbGallery + printsQty * prices.wbPrints)
         : format === "prints" && extraPrintsQty > 0

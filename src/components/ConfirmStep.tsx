@@ -51,6 +51,7 @@ export default function ConfirmStep({
 
   const [loading, setLoading] = useState(false);
   const isWeddingBox = !!weddingBoxId;
+  const prepaidPrintsPrice = isWeddingBox ? WB_PRINTS_PRICE : PREPAID_PRINTS_PRICE;
   const info = { label: FORMAT_LABELS[format], price: prices[format] };
   const hasDiscount = discountPct && discountPct > 0;
   const salePrice = hasDiscount ? info.price * (1 - discountPct / 100) : null;
@@ -68,7 +69,7 @@ export default function ConfirmStep({
 
       const basePrice = salePrice ?? info.price;
       const totalPrice = isPrepaid
-        ? printsQty * PREPAID_PRINTS_PRICE
+        ? printsQty * prepaidPrintsPrice
         : isWeddingBox
           ? WB_GALLERY_PRICE + printsQty * WB_PRINTS_PRICE
           : basePrice + extraPrintsQty * EXTRA_PRINTS_PRICE;
@@ -134,7 +135,7 @@ export default function ConfirmStep({
           <>
             <div style={divider} />
             <div style={row}>
-              <span style={rowLabel}>Digital Scans</span>
+              <span style={rowLabel}>{isWeddingBox ? "Digital Gallery" : "Digital Scans"}</span>
               <span style={rowValue}>Free</span>
             </div>
             {printsQty > 0 && (
@@ -142,13 +143,13 @@ export default function ConfirmStep({
                 <div style={divider} />
                 <div style={row}>
                   <span style={rowLabel}>{printsQty}× Prints</span>
-                  <span style={rowValue}>{fmt(printsQty * PREPAID_PRINTS_PRICE)}</span>
+                  <span style={rowValue}>{fmt(printsQty * prepaidPrintsPrice)}</span>
                 </div>
                 <div style={divider} />
                 <div style={row}>
                   <span style={{ ...rowLabel, fontWeight: 600 }}>Total</span>
                   <span style={{ ...rowValue, fontWeight: 600 }}>
-                    {fmt(printsQty * PREPAID_PRINTS_PRICE)}
+                    {fmt(printsQty * prepaidPrintsPrice)}
                   </span>
                 </div>
               </>

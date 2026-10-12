@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { buyerCountryFor, isValidCid, marketEnv, resolveMarket, storeFor } from "./_markets.js";
+import { prepaidWeddingBoxLines } from "./_wedding-lines.js";
 
 /**
  * POST /api/cart-create
@@ -39,6 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const extraPrintsVariantId = marketEnv(market, "EXTRA_PRINTS_VARIANT_ID");
   const prepaidScansVariantId = marketEnv(market, "PREPAID_SCANS_VARIANT_ID");
   const prepaidPrintsVariantId = marketEnv(market, "PREPAID_PRINTS_VARIANT_ID");
+  const wbPrepaidRedeemVariantId = marketEnv(market, "WB_PREPAID_REDEEM_VARIANT_ID");
 
   const requiredEnv = [
     !storefrontToken && "SHOPIFY_STOREFRONT_TOKEN",
@@ -46,11 +48,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     !printsVariantId && "PRINTS_VARIANT_ID",
   ].filter(Boolean);
 
-  if (weddingBoxId) {
+  if (prepaid && weddingBoxId) {
+    if (!wbPrepaidRedeemVariantId) requiredEnv.push("WB_PREPAID_REDEEM_VARIANT_ID");
+    if (printsQty > 0 && !wbPrintsVariantId) requiredEnv.push("WB_PRINTS_VARIANT_ID");
+  } else if (weddingBoxId) {
     if (!wbGalleryVariantId) requiredEnv.push("WB_SCANS_VARIANT_ID");
     if (printsQty > 0 && !wbPrintsVariantId) requiredEnv.push("WB_PRINTS_VARIANT_ID");
-  }
-  if (prepaid) {
+  } else if (prepaid) {
     if (!prepaidScansVariantId) requiredEnv.push("PREPAID_SCANS_VARIANT_ID");
     if (printsQty > 0 && !prepaidPrintsVariantId) requiredEnv.push("PREPAID_PRINTS_VARIANT_ID");
   }
@@ -105,7 +109,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Build cart lines — wedding box orders have a base gallery + optional prints add-on
   let lines;
-  if (prepaid && prepaidScansVariantId) {
+  if (prepaid && weddingBoxId && wbPrepaidRedeemVariantId) {
+    lines = prepaidWeddingBoxLines({
+      redeemVariantId: wbPrepaidRedeemVariantId,
+      printsVariantId: wbPrintsVariantId,
+      printsQty: printsQty || 0,
+      attributes,
+      cid,
+      weddingBoxId,
+    });
+  } else if (prepaid && prepaidScansVariantId) {
     // Prepaid redemption — $0 digital scans base + optional prints add-on
     lines = [
       {

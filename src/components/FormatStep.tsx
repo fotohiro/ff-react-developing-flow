@@ -44,6 +44,8 @@ export default function FormatStep({
   const PREPAID_PRINTS_PRICE = prices.prepaidPrints;
 
   if (isPrepaid) {
+    const baseLabel = isWeddingBox ? "Digital Gallery" : "Digital Scans";
+    const printsPrice = isWeddingBox ? WB_PRINTS_PRICE : PREPAID_PRINTS_PRICE;
     return (
       <div style={container}>
         <BackButton onClick={onBack} />
@@ -54,7 +56,7 @@ export default function FormatStep({
 
         {/* Base: Digital Scans — prepaid, always included */}
         <div style={{ ...card, backgroundColor: "var(--color-selected)", borderColor: "var(--color-border)" }}>
-          <span style={cardLabel}>Digital Scans</span>
+          <span style={cardLabel}>{baseLabel}</span>
           <span style={cardPrice}>Free</span>
         </div>
 
@@ -76,7 +78,7 @@ export default function FormatStep({
             }}
           >
             <span style={cardLabel}>+ Add Prints</span>
-            <span style={cardPrice}>{fmt(PREPAID_PRINTS_PRICE)}/ea</span>
+            <span style={cardPrice}>{fmt(printsPrice)}/ea</span>
           </button>
 
           {/* Quantity selector — visible when prints enabled */}
@@ -108,7 +110,7 @@ export default function FormatStep({
         {printsQty > 0 && (
           <div style={totalRow}>
             <span style={totalLabel}>Total</span>
-            <span style={totalValue}>{fmt(printsQty * PREPAID_PRINTS_PRICE)}</span>
+            <span style={totalValue}>{fmt(printsQty * printsPrice)}</span>
           </div>
         )}
 
