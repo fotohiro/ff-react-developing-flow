@@ -18,6 +18,8 @@ type Phase = "select" | "upload" | "address" | "qr";
 interface Props {
   cid: string;
   email: string;
+  weddingBoxId?: string | null;
+  isPrepaid?: boolean;
   labelImg: string | null;
   labelSource: "camera" | "replacement" | null;
   labelTracking: string | null;
@@ -31,6 +33,8 @@ interface Props {
 export default function ReturnLabelStep({
   cid,
   email,
+  weddingBoxId,
+  isPrepaid,
   labelImg,
   labelSource,
   labelTracking,
@@ -135,14 +139,23 @@ export default function ReturnLabelStep({
       onCapture(result.qrCodeUrl);
       onTrackingChange(result.trackingNumber);
 
+      const resumeParams = new URLSearchParams({
+        cid,
+        email,
+        lt: result.trackingNumber,
+        ...(weddingBoxId ? { wbid: weddingBoxId } : {}),
+        ...(isPrepaid ? { prepaid: "true" } : {}),
+      });
       trackEvent("Label Generated", email, {
         cid,
         email,
         qrCodeUrl: result.qrCodeUrl,
         labelUrl: result.labelUrl,
         trackingNumber: result.trackingNumber,
-        checkoutResumeUrl: `https://lab.fotofoto.io/?cid=${encodeURIComponent(cid)}&email=${encodeURIComponent(email)}&lt=${encodeURIComponent(result.trackingNumber)}`,
+        checkoutResumeUrl: `https://lab.fotofoto.io/?${resumeParams.toString()}`,
         kind: "usps_label_broker_qr",
+        ...(weddingBoxId ? { weddingBoxId } : {}),
+        ...(isPrepaid ? { prepaid: true } : {}),
       });
       setPhase("qr");
     } catch (e) {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { Analytics } from "@vercel/analytics/react";
-import { getParams } from "./lib/params";
+import { cameraRouterRedirectUrl, getParams } from "./lib/params";
 import { trackEvent } from "./lib/api";
 import { usePricing, type Market } from "./lib/pricing";
 import ProgressBar from "./components/ProgressBar";
@@ -19,9 +19,35 @@ type StepName = "email" | "format" | "returnLabel" | "intlReturn" | "myReturn" |
 
 export default function App() {
   const [cid, setCid] = useState(() => getParams().cid);
+  const routerRedirect = useMemo(
+    () =>
+      cid
+        ? cameraRouterRedirectUrl(window.location.search, window.location.hostname)
+        : null,
+    [cid]
+  );
+
+  useEffect(() => {
+    if (routerRedirect) {
+      window.location.replace(routerRedirect);
+    }
+  }, [routerRedirect]);
+
+  if (routerRedirect) {
+    return <div style={shell} />;
+  }
 
   if (!cid) {
     const handleCid = (next: string) => {
+      const target = cameraRouterRedirectUrl(
+        window.location.search,
+        window.location.hostname,
+        next
+      );
+      if (target) {
+        window.location.replace(target);
+        return;
+      }
       const url = new URL(window.location.href);
       url.searchParams.set("cid", next);
       window.history.replaceState(null, "", url);
@@ -96,7 +122,13 @@ function DevelopingFlow({ cid }: { cid: string }) {
 
   useEffect(() => {
     if (skipEmail && emailParam) {
-      trackEvent("Started Developing", emailParam, { cid, email: emailParam, source: "winback" });
+      trackEvent("Started Developing", emailParam, {
+        cid,
+        email: emailParam,
+        source: "winback",
+        ...(wbid ? { weddingBoxId: wbid } : {}),
+        ...(isPrepaid ? { prepaid: true } : {}),
+      });
     }
   }, []);
 
@@ -130,7 +162,12 @@ function DevelopingFlow({ cid }: { cid: string }) {
 
   /* Step-specific "next" handlers with Klaviyo tracking */
   const handleEmailNext = () => {
-    trackEvent("Started Developing", email, { cid, email });
+    trackEvent("Started Developing", email, {
+      cid,
+      email,
+      ...(wbid ? { weddingBoxId: wbid } : {}),
+      ...(isPrepaid ? { prepaid: true } : {}),
+    });
     goNext();
   };
 
@@ -158,7 +195,13 @@ function DevelopingFlow({ cid }: { cid: string }) {
   };
 
   const handleUploadNext = () => {
-    trackEvent("Uploaded Label", email, { cid, email, has_label: !!labelImg });
+    trackEvent("Uploaded Label", email, {
+      cid,
+      email,
+      has_label: !!labelImg,
+      ...(wbid ? { weddingBoxId: wbid } : {}),
+      ...(isPrepaid ? { prepaid: true } : {}),
+    });
     goNext();
   };
 
@@ -204,6 +247,8 @@ function DevelopingFlow({ cid }: { cid: string }) {
           <ReturnLabelStep
             cid={cid}
             email={email}
+            weddingBoxId={wbid}
+            isPrepaid={isPrepaid}
             labelImg={labelImg}
             labelSource={labelSource}
             labelTracking={labelTracking}
