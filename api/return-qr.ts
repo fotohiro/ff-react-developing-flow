@@ -124,6 +124,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       ],
       extra: { qr_code_requested: true },
+      metadata: JSON.stringify({ cid: String(cid).trim(), email: String(email).trim().toLowerCase() }),
       async: false,
     });
 
@@ -161,6 +162,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const tx = await shippo<Tx>(token, "/transactions/", {
       rate: rate.object_id,
       label_file_type: "PNG",
+      metadata: JSON.stringify({ cid: String(cid).trim(), email: String(email).trim().toLowerCase() }),
       async: false,
     });
 

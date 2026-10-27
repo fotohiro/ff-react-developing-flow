@@ -28,6 +28,27 @@ export interface CustomerAddress {
   zip: string;
 }
 
+/** Look up if a Shippo USPS Label Broker QR already exists for this cid or email. */
+export async function lookupExistingReturnQr(
+  cid: string,
+  email: string
+): Promise<{
+  found: boolean;
+  qrCodeUrl?: string;
+  labelUrl?: string | null;
+  trackingNumber?: string;
+  trackingUrl?: string | null;
+}> {
+  try {
+    const params = new URLSearchParams({ cid, email });
+    const res = await fetch(`${API_BASE}/return-qr-lookup?${params.toString()}`);
+    if (!res.ok) return { found: false };
+    return await res.json();
+  } catch {
+    return { found: false };
+  }
+}
+
 /** Request a prepaid USPS Label Broker QR via Shippo (customer → lab). */
 export async function requestReturnQr(
   cid: string,

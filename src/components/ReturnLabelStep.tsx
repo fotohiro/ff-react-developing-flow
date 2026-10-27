@@ -1,8 +1,8 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Button from "./Button";
 import BackButton from "./BackButton";
 import UploadStep from "./UploadStep";
-import { requestReturnQr, trackEvent, type CustomerAddress } from "../lib/api";
+import { lookupExistingReturnQr, requestReturnQr, trackEvent, type CustomerAddress } from "../lib/api";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
@@ -57,6 +57,27 @@ export default function ReturnLabelStep({
     state: "",
     zip: "",
   });
+
+  // Check if this customer already generated a Shippo QR code in an earlier session
+  // (e.g. generated a QR code weeks ago, mailed the camera, and came back to pay).
+  useEffect(() => {
+    if (initialQrUrl || labelImg) return;
+    let cancelled = false;
+    lookupExistingReturnQr(cid, email).then((existing) => {
+      if (cancelled || !existing.found || !existing.qrCodeUrl || !existing.trackingNumber) {
+        return;
+      }
+      setQrCodeUrl(existing.qrCodeUrl);
+      setQrTracking(existing.trackingNumber);
+      onLabelSourceChange("replacement");
+      onCapture(existing.qrCodeUrl);
+      onTrackingChange(existing.trackingNumber);
+      setPhase("qr");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [cid, email]);
 
   const updateField = (field: keyof CustomerAddress, value: string) => {
     setAddress((prev) => ({ ...prev, [field]: value }));
@@ -120,6 +141,7 @@ export default function ReturnLabelStep({
         qrCodeUrl: result.qrCodeUrl,
         labelUrl: result.labelUrl,
         trackingNumber: result.trackingNumber,
+        checkoutResumeUrl: `https://lab.fotofoto.io/?cid=${encodeURIComponent(cid)}&email=${encodeURIComponent(email)}&lt=${encodeURIComponent(result.trackingNumber)}`,
         kind: "usps_label_broker_qr",
       });
       setPhase("qr");

@@ -81,7 +81,12 @@ export default function ConfirmStep({
         country,
         market,
         ...(labelToken
-          ? { labelToken }
+          ? {
+              labelToken,
+              // If `lt` is already a 22-digit USPS tracking number (e.g. from the QR email link),
+              // also pass it as `labelTracking` so the webhook writes `_Return Tracking` directly.
+              ...(/^9\d{21}$/.test(labelToken.trim()) ? { labelTracking: labelToken.trim() } : {}),
+            }
           : { labelUrl: hostedLabelUrl ?? labelImg ?? undefined }),
         ...(labelTracking ? { labelTracking } : {}),
         ...(discountCode ? { discountCode } : {}),
