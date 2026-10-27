@@ -19,6 +19,8 @@ interface Props {
   cid: string;
   email: string;
   labelImg: string | null;
+  labelSource: "camera" | "replacement" | null;
+  labelTracking: string | null;
   onCapture: (dataUrl: string) => void;
   onLabelSourceChange: (source: "camera" | "replacement" | null) => void;
   onTrackingChange: (tracking: string | null) => void;
@@ -30,16 +32,24 @@ export default function ReturnLabelStep({
   cid,
   email,
   labelImg,
+  labelSource,
+  labelTracking,
   onCapture,
   onLabelSourceChange,
   onTrackingChange,
   onNext,
   onBack,
 }: Props) {
-  const [phase, setPhase] = useState<Phase>("select");
+  // If the customer already generated a replacement QR code in this session,
+  // start directly on the QR display screen (even if they navigated Back from ConfirmStep).
+  const initialQrUrl = labelSource === "replacement" && labelImg ? labelImg : null;
+  const [phase, setPhase] = useState<Phase>(initialQrUrl ? "qr" : "select");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(initialQrUrl);
+  const [qrTracking, setQrTracking] = useState<string | null>(
+    labelSource === "replacement" ? labelTracking : null
+  );
   const [address, setAddress] = useState<CustomerAddress>({
     name: "",
     street1: "",
@@ -60,11 +70,29 @@ export default function ReturnLabelStep({
     /^\d{5}$/.test(address.zip.trim());
 
   const chooseHaveLabel = () => {
+    // If they already generated a QR code in this session and tap "I have my label"
+    // (because they screenshotted the QR code), take them back to their generated QR
+    // instead of letting them upload a screenshot that wipes their tracking number.
+    if (qrCodeUrl) {
+      onLabelSourceChange("replacement");
+      onCapture(qrCodeUrl);
+      if (qrTracking) onTrackingChange(qrTracking);
+      setPhase("qr");
+      return;
+    }
     trackEvent("Chose Existing Label", email, { cid, email });
     setPhase("upload");
   };
 
   const chooseNeedLabel = () => {
+    // If they already generated a QR code, show it rather than buying a duplicate Shippo label
+    if (qrCodeUrl) {
+      onLabelSourceChange("replacement");
+      onCapture(qrCodeUrl);
+      if (qrTracking) onTrackingChange(qrTracking);
+      setPhase("qr");
+      return;
+    }
     trackEvent("Chose New Label", email, { cid, email });
     setPhase("address");
   };
@@ -81,6 +109,7 @@ export default function ReturnLabelStep({
         zip: address.zip.trim(),
       });
       setQrCodeUrl(result.qrCodeUrl);
+      setQrTracking(result.trackingNumber);
       onLabelSourceChange("replacement");
       onCapture(result.qrCodeUrl);
       onTrackingChange(result.trackingNumber);
@@ -245,15 +274,7 @@ export default function ReturnLabelStep({
   /* ── QR display ── */
   return (
     <div style={container}>
-      <BackButton
-        onClick={() => {
-          onCapture("");
-          onLabelSourceChange(null);
-          onTrackingChange(null);
-          setQrCodeUrl(null);
-          setPhase("address");
-        }}
-      />
+      <BackButton onClick={onBack} />
       <h1 style={headline}>Bring this QR code to the Post Office.</h1>
 
       <div style={qrFrame}>

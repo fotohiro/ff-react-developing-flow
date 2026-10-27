@@ -205,6 +205,8 @@ function DevelopingFlow({ cid }: { cid: string }) {
             cid={cid}
             email={email}
             labelImg={labelImg}
+            labelSource={labelSource}
+            labelTracking={labelTracking}
             onCapture={handleCapture}
             onLabelSourceChange={setLabelSource}
             onTrackingChange={setLabelTracking}
