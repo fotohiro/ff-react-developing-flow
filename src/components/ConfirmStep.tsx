@@ -103,9 +103,7 @@ export default function ConfirmStep({
         checkout_url: checkoutUrl,
         ...(weddingBoxId ? { weddingBoxId, printsQty } : {}),
         ...(isPrepaid ? { prepaid: true, printsQty } : {}),
-        ...(labelSource === "replacement" && labelImg
-          ? { labelUrl: labelImg }
-          : labelSource === "camera" && hostedLabelUrl
+        ...(labelSource === "camera" && hostedLabelUrl
             ? { labelUrl: hostedLabelUrl }
             : {}),
       });
@@ -224,13 +222,13 @@ export default function ConfirmStep({
         </div>
 
         {/* Label thumbnail or "on file" */}
-        {labelToken ? (
+        {labelToken || labelSource === "replacement" ? (
           <>
             <div style={divider} />
             <div style={row}>
               <span style={rowLabel}>Return label</span>
               <span style={{ ...rowValue, color: "var(--color-success)" }}>
-                ✓ On file
+                {labelSource === "replacement" ? "✓ QR emailed after checkout" : "✓ On file"}
               </span>
             </div>
           </>

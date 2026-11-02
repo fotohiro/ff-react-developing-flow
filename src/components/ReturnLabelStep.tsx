@@ -146,11 +146,11 @@ export default function ReturnLabelStep({
         ...(weddingBoxId ? { wbid: weddingBoxId } : {}),
         ...(isPrepaid ? { prepaid: "true" } : {}),
       });
+      // No QR or label URL: the QR is emailed only after checkout ("Return QR Ready"),
+      // so this event drives the abandoned-checkout reminder.
       trackEvent("Label Generated", email, {
         cid,
         email,
-        qrCodeUrl: result.qrCodeUrl,
-        labelUrl: result.labelUrl,
         trackingNumber: result.trackingNumber,
         checkoutResumeUrl: `https://lab.fotofoto.io/?${resumeParams.toString()}`,
         kind: "usps_label_broker_qr",
@@ -306,23 +306,18 @@ export default function ReturnLabelStep({
     );
   }
 
-  /* ── QR display ── */
+  /* ── Label ready (QR held until checkout) ── */
   return (
     <div style={container}>
       <BackButton onClick={onBack} />
-      <h1 style={headline}>Bring this QR code to the Post Office.</h1>
-
-      <div style={qrFrame}>
-        {qrCodeUrl ? (
-          <img src={qrCodeUrl} alt="USPS return QR code" style={qrImg} />
-        ) : null}
-      </div>
+      <h1 style={headline}>Your prepaid return label is ready.</h1>
 
       <p style={bodyText}>
-        Show this code. USPS will scan, print your label, and take your package.
+        We'll email your USPS QR code as soon as you check out. Show it at any Post Office:
+        USPS will scan it, print your label, and take your package.
       </p>
 
-      <p style={emailNotice}>💡 A copy will be sent to your email.</p>
+      <p style={emailNotice}>Sent to {email}</p>
 
       <div style={{ alignSelf: "center", width: "100%", display: "flex", justifyContent: "center" }}>
         <Button onClick={onNext}>Continue</Button>
@@ -443,27 +438,6 @@ const errorMsg: CSSProperties = {
   color: "var(--color-error)",
   textAlign: "center",
   marginTop: 8,
-};
-
-const qrFrame: CSSProperties = {
-  width: "100%",
-  aspectRatio: "1",
-  maxWidth: 320,
-  alignSelf: "center",
-  borderRadius: "var(--radius-card)",
-  border: "1px dashed var(--color-border)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  overflow: "hidden",
-  padding: 16,
-  boxSizing: "border-box",
-};
-
-const qrImg: CSSProperties = {
-  width: "100%",
-  height: "100%",
-  objectFit: "contain",
 };
 
 const bodyText: CSSProperties = {
