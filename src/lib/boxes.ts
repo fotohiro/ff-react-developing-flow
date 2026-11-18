@@ -128,6 +128,18 @@ export function chosenBoxes(offer: Boxes, choice: BoxChoice | null): Box[] {
   return !needsChoice(offer) || choice === "all" ? offer.all : offer.base;
 }
 
+/**
+ * What the chosen boxes mean for the return label. `atHome` boxes still need to be sent in; with
+ * none, the label step is skipped and no label goes to the cart, so one made for an earlier,
+ * larger selection cannot land on a box that is already at the lab. A checkout without boxes
+ * (a single camera) follows the link's own at_lab flag and always sends the label it has.
+ */
+export function labelNeeds(boxes: Box[], linkAtLab: boolean): { atHome: number; skipStep: boolean; send: boolean } {
+  if (boxes.length === 0) return { atHome: 0, skipStep: linkAtLab, send: true };
+  const atHome = boxes.filter((b) => !b.atLab).length;
+  return { atHome, skipStep: atHome === 0, send: atHome > 0 };
+}
+
 /** Prints are per box: `printsQty` sets for every box in the cart. Prepaid boxes cost nothing to develop. */
 export function boxTotals(boxes: Box[], printsQty: number, prices: { wbGallery: number; wbPrints: number }) {
   const payable = boxes.filter((b) => b.state !== "prepaid").length;

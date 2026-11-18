@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { boxTotals, chosenBoxes, fetchBoxContext, linkBox, needsChoice, parseBoxContext, planBoxOffer, showsBoxStep, type Box, type BoxContext, type BoxOffer } from "../src/lib/boxes.ts";
+import { boxTotals, chosenBoxes, fetchBoxContext, labelNeeds, linkBox, needsChoice, parseBoxContext, planBoxOffer, showsBoxStep, type Box, type BoxContext, type BoxOffer } from "../src/lib/boxes.ts";
 
 const A = "WB-20260413-015";
 const B = "WB-20260413-016";
@@ -139,4 +139,18 @@ test("a failed context request falls back to the link, and says why", async (t) 
   assert.equal(await fetchBoxContext("77031", A, "a@b.co", 10), null);
 
   assert.deepEqual(warnings.map((w) => w.match(/\((.*)\)/)?.[1]), ["HTTP 429", "unexpected response", "request failed", "no answer in 10 ms"]);
+});
+
+test("a label is asked for, and sent, only while a chosen box is still at home", () => {
+  const offer = boxes(plan(ok([box(A, { atLab: true }), box(B)])));
+  // all boxes: B is at home, so the label step shows and its label goes to the cart
+  assert.deepEqual(labelNeeds(chosenBoxes(offer, "all"), true), { atHome: 1, skipStep: false, send: true });
+  // back to just the scanned box, which is at the lab: no step, and the label made for B stays behind
+  assert.deepEqual(labelNeeds(chosenBoxes(offer, "base"), true), { atHome: 0, skipStep: true, send: false });
+  assert.deepEqual(labelNeeds([box(A), box(B)], false), { atHome: 2, skipStep: false, send: true });
+});
+
+test("a single camera follows the link's at_lab flag and keeps its label", () => {
+  assert.deepEqual(labelNeeds([], false), { atHome: 0, skipStep: false, send: true });
+  assert.deepEqual(labelNeeds([], true), { atHome: 0, skipStep: true, send: true });
 });
