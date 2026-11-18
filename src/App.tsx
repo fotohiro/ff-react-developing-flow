@@ -4,6 +4,8 @@ import { Analytics } from "@vercel/analytics/react";
 import { cameraRouterRedirectUrl, getParams } from "./lib/params";
 import { trackEvent } from "./lib/api";
 import { usePricing, type Market } from "./lib/pricing";
+import { boxTotals, chosenBoxes, fetchBoxContext, labelNeeds, linkBox, planBoxOffer, showsBoxStep, type BoxChoice, type BoxContext, type BoxOffer } from "./lib/boxes";
+import { buildSteps, type StepName } from "./lib/steps";
 import ProgressBar from "./components/ProgressBar";
 import FadeIn from "./components/FadeIn";
 import EmailStep from "./components/EmailStep";
@@ -11,11 +13,11 @@ import FormatStep from "./components/FormatStep";
 import ReturnLabelStep from "./components/ReturnLabelStep";
 import IntlReturnStep from "./components/IntlReturnStep";
 import ConfirmStep from "./components/ConfirmStep";
+import BoxStep from "./components/BoxStep";
+import PaidBoxStep from "./components/PaidBoxStep";
 import CameraIdStep from "./components/CameraIdStep";
 import MyReturnStep from "./components/MyReturnStep";
 import type { FormatType } from "./components/FormatStep";
-
-type StepName = "email" | "format" | "returnLabel" | "intlReturn" | "myReturn" | "confirm";
 
 export default function App() {
   const [cid, setCid] = useState(() => getParams().cid);
@@ -74,8 +76,6 @@ function DevelopingFlow({ cid }: { cid: string }) {
   const { wbid, prepaid, atLab, lt, discount, discountPct, email: emailParam, fmt } = useMemo(() => getParams(), []);
   const { prices, formatPrice, country, market, loading: pricingLoading, setMarket } = usePricing();
   const hasToken = !!lt;
-  const isWeddingBox = !!wbid;
-  const isPrepaid = prepaid;
   // Set when the customer taps "Returning in the US?": they'll post it back with the US label.
   const [returnInUS, setReturnInUS] = useState(false);
   // Malaysia-store sessions return to the Malaysian lab. Other non-US visitors use the
@@ -90,30 +90,49 @@ function DevelopingFlow({ cid }: { cid: string }) {
 
   const skipEmail = !!emailParam && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailParam);
   const skipFormat = skipEmail && !!fmt;
+  const asksEmail = !hasToken && !skipEmail;
 
-  /* Step configuration — adapts to fast-track / at-lab / winback / standard flow.
-     For international and Malaysia sessions the return step sits right after
-     email and before format, and replaces the US-only upload step. */
-  const steps: StepName[] = hasToken
-    ? ["format", "confirm"]
-    : atLab
-      ? (skipEmail ? ["format", "confirm"] : ["email", "format", "confirm"])
-      : earlyReturnStep
-        ? (skipFormat
-            ? [earlyReturnStep, "confirm"]
-            : skipEmail
-              ? [earlyReturnStep, "format", "confirm"]
-              : ["email", earlyReturnStep, "format", "confirm"])
-        : (skipFormat
-            ? ["returnLabel", "confirm"]
-            : skipEmail
-              ? ["format", "returnLabel", "confirm"]
-              : ["email", "format", "returnLabel", "confirm"]);
+  /* Wedding Boxes that shipped with this one. The offer is worked out once the email is known:
+     on load when the link carries it, otherwise when the email step is submitted. Until then,
+     and whenever the lookup fails, the checkout is for the one box the link names. */
+  const [offer, setOffer] = useState<BoxOffer>({ kind: "link" });
+  const [boxChoice, setBoxChoice] = useState<BoxChoice | null>(null);
+  const [offerLoading, setOfferLoading] = useState(!!wbid && !asksEmail);
+
+  const applyContext = (context: BoxContext | null) => {
+    if (!wbid) return;
+    const next = planBoxOffer(context, wbid, { prepaid, atLab });
+    setOffer(next);
+    setBoxChoice(next.kind === "boxes" && next.preselectAll ? "all" : null);
+    setOfferLoading(false);
+  };
+
+  // A stale link's box no longer applies: the camera checks out on its own.
+  const weddingBoxId = offer.kind === "standard" ? null : wbid;
+  const isWeddingBox = !!weddingBoxId;
+  const boxes = !weddingBoxId
+    ? []
+    : offer.kind === "boxes"
+      ? chosenBoxes(offer, boxChoice)
+      : [linkBox(weddingBoxId, cid, { prepaid, atLab })];
+  const isPrepaid = isWeddingBox ? boxes.every((b) => b.state === "prepaid") : prepaid && offer.kind !== "standard";
+  // The label step and the label sent to the cart both follow the chosen boxes (see labelNeeds).
+  const { atHome: boxesAtHome, skipStep: skipLabel, send: sendLabel } = labelNeeds(boxes, atLab);
+
+  /* Step configuration — adapts to fast-track / at-lab / winback / standard flow (see buildSteps). */
+  const steps: StepName[] = buildSteps({
+    hasToken,
+    skipLabel,
+    skipEmail,
+    skipFormat,
+    earlyReturnStep,
+    boxStep: showsBoxStep(offer),
+  });
 
   /* Wizard state */
   const [stepIdx, setStepIdx] = useState(0);
   const [email, setEmail] = useState(emailParam ?? "");
-  const [format, setFormat] = useState<FormatType | null>(isWeddingBox || isPrepaid ? "scans" : fmt ?? null);
+  const [format, setFormat] = useState<FormatType | null>(wbid || prepaid ? "scans" : fmt ?? null);
   const [labelImg, setLabelImg] = useState<string | null>(null);
   const [labelSource, setLabelSource] = useState<"camera" | "replacement" | null>(null);
   const [labelTracking, setLabelTracking] = useState<string | null>(null);
@@ -130,6 +149,7 @@ function DevelopingFlow({ cid }: { cid: string }) {
         ...(isPrepaid ? { prepaid: true } : {}),
       });
     }
+    if (wbid && !asksEmail) void fetchBoxContext(cid, wbid, emailParam ?? "").then(applyContext);
   }, []);
 
   const currentStep = steps[stepIdx];
@@ -161,13 +181,22 @@ function DevelopingFlow({ cid }: { cid: string }) {
   };
 
   /* Step-specific "next" handlers with Klaviyo tracking */
-  const handleEmailNext = () => {
+  const handleEmailNext = async () => {
     trackEvent("Started Developing", email, {
       cid,
       email,
       ...(wbid ? { weddingBoxId: wbid } : {}),
       ...(isPrepaid ? { prepaid: true } : {}),
     });
+    if (wbid) {
+      setOfferLoading(true);
+      applyContext(await fetchBoxContext(cid, wbid, email));
+    }
+    setStepIdx(1);
+  };
+
+  const handleBoxesNext = () => {
+    trackEvent("Selected Boxes", email, { cid, email, weddingBoxId: wbid, weddingBoxIds: boxes.map((b) => b.id) });
     goNext();
   };
 
@@ -178,16 +207,17 @@ function DevelopingFlow({ cid }: { cid: string }) {
 
   const handleFormatNext = () => {
     if (!format) return;
-    const price = isPrepaid
-      ? (printsQty > 0 ? formatPrice(printsQty * (isWeddingBox ? prices.wbPrints : prices.prepaidPrints)) : "Free")
-      : isWeddingBox
-        ? formatPrice(prices.wbGallery + printsQty * prices.wbPrints)
+    const boxTotal = boxTotals(boxes, printsQty, prices).total;
+    const price = isWeddingBox
+      ? (boxTotal > 0 ? formatPrice(boxTotal) : "Free")
+      : isPrepaid
+        ? (printsQty > 0 ? formatPrice(printsQty * prices.prepaidPrints) : "Free")
         : format === "prints" && extraPrintsQty > 0
           ? formatPrice(prices.prints + extraPrintsQty * prices.extraPrints)
           : formatPrice(prices[format]);
     trackEvent("Selected Format", email, {
       cid, email, format, price,
-      ...(isWeddingBox ? { weddingBoxId: wbid, printsQty } : {}),
+      ...(isWeddingBox ? { weddingBoxId: weddingBoxId, weddingBoxIds: boxes.map((b) => b.id), printsQty } : {}),
       ...(isPrepaid ? { prepaid: true, printsQty } : {}),
       ...(extraPrintsQty > 0 ? { extraPrintsQty } : {}),
     });
@@ -199,7 +229,7 @@ function DevelopingFlow({ cid }: { cid: string }) {
       cid,
       email,
       has_label: !!labelImg,
-      ...(wbid ? { weddingBoxId: wbid } : {}),
+      ...(weddingBoxId ? { weddingBoxId } : {}),
       ...(isPrepaid ? { prepaid: true } : {}),
     });
     goNext();
@@ -224,6 +254,18 @@ function DevelopingFlow({ cid }: { cid: string }) {
             email={email}
             onChange={setEmail}
             onNext={handleEmailNext}
+            busy={offerLoading}
+          />
+        );
+      case "boxes":
+        if (offer.kind !== "boxes") return null;
+        return (
+          <BoxStep
+            offer={offer}
+            choice={boxChoice}
+            onChoose={setBoxChoice}
+            onNext={handleBoxesNext}
+            onBack={stepIdx > 0 ? goBack : undefined}
           />
         );
       case "format":
@@ -232,6 +274,8 @@ function DevelopingFlow({ cid }: { cid: string }) {
             format={format}
             discountPct={discountPct}
             isWeddingBox={isWeddingBox}
+            boxCount={boxes.length}
+            payableBoxCount={boxTotals(boxes, 0, prices).payable}
             isPrepaid={isPrepaid}
             printsQty={printsQty}
             onPrintsQtyChange={setPrintsQty}
@@ -247,7 +291,8 @@ function DevelopingFlow({ cid }: { cid: string }) {
           <ReturnLabelStep
             cid={cid}
             email={email}
-            weddingBoxId={wbid}
+            weddingBoxId={weddingBoxId}
+            boxesAtHome={boxesAtHome}
             isPrepaid={isPrepaid}
             labelImg={labelImg}
             labelSource={labelSource}
@@ -276,13 +321,13 @@ function DevelopingFlow({ cid }: { cid: string }) {
             cid={cid}
             email={email}
             format={format!}
-            labelImg={labelImg}
+            labelImg={sendLabel ? labelImg : null}
             labelToken={lt}
-            labelSource={labelSource}
-            labelTracking={labelTracking}
+            labelSource={sendLabel ? labelSource : null}
+            labelTracking={sendLabel ? labelTracking : null}
             discountCode={discount}
             discountPct={discountPct}
-            weddingBoxId={wbid}
+            boxes={boxes}
             isPrepaid={isPrepaid}
             printsQty={printsQty}
             extraPrintsQty={extraPrintsQty}
@@ -291,6 +336,26 @@ function DevelopingFlow({ cid }: { cid: string }) {
         );
     }
   };
+
+  // The link carries the email, so the first step depends on the offer: wait for it.
+  if (offerLoading && !asksEmail) {
+    return <div style={shell} />;
+  }
+
+  if (offer.kind === "paid") {
+    return (
+      <div style={shell}>
+        <div style={logoWrap}>
+          <img src="/ff-logotype.svg" alt="FOTOFOTO" style={logoImg} />
+        </div>
+        <div style={content}>
+          <PaidBoxStep />
+        </div>
+        <SpeedInsights />
+        <Analytics />
+      </div>
+    );
+  }
 
   return (
     <div style={shell}>

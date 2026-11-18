@@ -9,6 +9,9 @@ interface Props {
   format: FormatType | null;
   discountPct?: number | null;
   isWeddingBox?: boolean;
+  /** Wedding Boxes in this checkout, and how many of them are charged for developing (the rest are prepaid). */
+  boxCount?: number;
+  payableBoxCount?: number;
   isPrepaid?: boolean;
   printsQty?: number;
   onPrintsQtyChange?: (qty: number) => void;
@@ -28,6 +31,8 @@ export default function FormatStep({
   format,
   discountPct,
   isWeddingBox,
+  boxCount = 1,
+  payableBoxCount = 1,
   isPrepaid,
   printsQty = 0,
   onPrintsQtyChange,
@@ -43,9 +48,9 @@ export default function FormatStep({
   const EXTRA_PRINTS_PRICE = prices.extraPrints;
   const PREPAID_PRINTS_PRICE = prices.prepaidPrints;
 
-  if (isPrepaid) {
-    const baseLabel = isWeddingBox ? "Digital Gallery" : "Digital Scans";
-    const printsPrice = isWeddingBox ? WB_PRINTS_PRICE : PREPAID_PRINTS_PRICE;
+  if (isPrepaid && !isWeddingBox) {
+    const baseLabel = "Digital Scans";
+    const printsPrice = PREPAID_PRINTS_PRICE;
     return (
       <div style={container}>
         <BackButton onClick={onBack} />
@@ -120,18 +125,21 @@ export default function FormatStep({
   }
 
   if (isWeddingBox) {
+    // One gallery per box; prepaid boxes are free. Prints are ordered per box.
+    const galleryTotal = payableBoxCount * WB_GALLERY_PRICE;
+    const total = galleryTotal + printsQty * boxCount * WB_PRINTS_PRICE;
     return (
       <div style={container}>
         <BackButton onClick={onBack} />
 
         <h1 style={headline}>
-          Choose your{"\n"}format.
+          {payableBoxCount === 0 ? "Redeem your\ndeveloping." : "Choose your\nformat."}
         </h1>
 
         {/* Base: Digital Gallery — always included */}
         <div style={{ ...card, backgroundColor: "var(--color-selected)", borderColor: "var(--color-border)" }}>
-          <span style={cardLabel}>Digital Gallery</span>
-          <span style={cardPrice}>{fmt(WB_GALLERY_PRICE)}</span>
+          <span style={cardLabel}>{boxCount > 1 ? `${boxCount} × Digital Gallery` : "Digital Gallery"}</span>
+          <span style={cardPrice}>{galleryTotal > 0 ? fmt(galleryTotal) : "Free"}</span>
         </div>
 
         {/* Add-on: Prints */}
@@ -158,7 +166,7 @@ export default function FormatStep({
           {/* Quantity selector — visible when prints enabled */}
           {printsQty > 0 && (
             <div style={qtyRow}>
-              <span style={qtyLabel}>Quantity</span>
+              <span style={qtyLabel}>{boxCount > 1 ? "Quantity per box" : "Quantity"}</span>
               <div style={qtyControls}>
                 <button
                   type="button"
@@ -181,10 +189,10 @@ export default function FormatStep({
         </div>
 
         {/* Total */}
-        {printsQty > 0 && (
+        {total > 0 && (printsQty > 0 || boxCount > 1) && (
           <div style={totalRow}>
             <span style={totalLabel}>Total</span>
-            <span style={totalValue}>{fmt(WB_GALLERY_PRICE + printsQty * WB_PRINTS_PRICE)}</span>
+            <span style={totalValue}>{fmt(total)}</span>
           </div>
         )}
 

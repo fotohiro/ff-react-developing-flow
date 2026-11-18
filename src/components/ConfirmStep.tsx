@@ -3,6 +3,7 @@ import Button from "./Button";
 import BackButton from "./BackButton";
 import { createCart, trackEvent, uploadLabelBase64 } from "../lib/api";
 import { usePricing } from "../lib/pricing";
+import { boxTotals, type Box } from "../lib/boxes";
 import type { FormatType } from "./FormatStep";
 
 interface Props {
@@ -15,7 +16,8 @@ interface Props {
   labelTracking?: string | null;
   discountCode?: string | null;
   discountPct?: number | null;
-  weddingBoxId?: string | null;
+  /** Wedding Boxes this checkout develops; empty for a single-camera checkout. */
+  boxes?: Box[];
   isPrepaid?: boolean;
   printsQty?: number;
   extraPrintsQty?: number;
@@ -37,21 +39,19 @@ export default function ConfirmStep({
   labelTracking,
   discountCode,
   discountPct,
-  weddingBoxId,
+  boxes = [],
   isPrepaid,
   printsQty = 0,
   extraPrintsQty = 0,
   onBack,
 }: Props) {
   const { prices, formatPrice: fmt, country, market } = usePricing();
-  const WB_GALLERY_PRICE = prices.wbGallery;
-  const WB_PRINTS_PRICE = prices.wbPrints;
   const EXTRA_PRINTS_PRICE = prices.extraPrints;
   const PREPAID_PRINTS_PRICE = prices.prepaidPrints;
 
   const [loading, setLoading] = useState(false);
-  const isWeddingBox = !!weddingBoxId;
-  const prepaidPrintsPrice = isWeddingBox ? WB_PRINTS_PRICE : PREPAID_PRINTS_PRICE;
+  const isWeddingBox = boxes.length > 0;
+  const box = boxTotals(boxes, printsQty, prices);
   const info = { label: FORMAT_LABELS[format], price: prices[format] };
   const hasDiscount = discountPct && discountPct > 0;
   const salePrice = hasDiscount ? info.price * (1 - discountPct / 100) : null;
@@ -68,10 +68,10 @@ export default function ConfirmStep({
       }
 
       const basePrice = salePrice ?? info.price;
-      const totalPrice = isPrepaid
-        ? printsQty * prepaidPrintsPrice
-        : isWeddingBox
-          ? WB_GALLERY_PRICE + printsQty * WB_PRINTS_PRICE
+      const totalPrice = isWeddingBox
+        ? box.total
+        : isPrepaid
+          ? printsQty * PREPAID_PRINTS_PRICE
           : basePrice + extraPrintsQty * EXTRA_PRINTS_PRICE;
 
       const checkoutUrl = await createCart({
@@ -90,7 +90,9 @@ export default function ConfirmStep({
           : { labelUrl: hostedLabelUrl ?? labelImg ?? undefined }),
         ...(labelTracking ? { labelTracking } : {}),
         ...(discountCode ? { discountCode } : {}),
-        ...(weddingBoxId ? { weddingBoxId, printsQty } : {}),
+        ...(isWeddingBox
+          ? { boxes: boxes.map((b) => ({ id: b.id, cid: b.cid, prepaid: b.state === "prepaid", atLab: b.atLab })), printsQty }
+          : {}),
         ...(isPrepaid ? { prepaid: true, printsQty } : {}),
         ...(extraPrintsQty > 0 ? { extraPrintsQty } : {}),
       });
@@ -99,9 +101,9 @@ export default function ConfirmStep({
       trackEvent("Completed Checkout", email, {
         cid,
         format,
-        price: isPrepaid && printsQty === 0 ? "Free" : fmt(totalPrice),
+        price: isPrepaid && totalPrice === 0 ? "Free" : fmt(totalPrice),
         checkout_url: checkoutUrl,
-        ...(weddingBoxId ? { weddingBoxId, printsQty } : {}),
+        ...(isWeddingBox ? { weddingBoxId: boxes[0].id, weddingBoxIds: boxes.map((b) => b.id), printsQty } : {}),
         ...(isPrepaid ? { prepaid: true, printsQty } : {}),
         ...(labelSource === "camera" && hostedLabelUrl
             ? { labelUrl: hostedLabelUrl }
@@ -109,7 +111,7 @@ export default function ConfirmStep({
       });
 
       // Same-tab redirect to Shopify checkout
-      window.location.href = checkoutUrl;
+      window.location.assign(checkoutUrl);
     } catch (err) {
       console.error("Checkout error:", err);
       alert(
@@ -134,11 +136,37 @@ export default function ConfirmStep({
           <span style={rowValue}>#{cid}</span>
         </div>
 
-        {isPrepaid ? (
+        {isWeddingBox ? (
           <>
             <div style={divider} />
             <div style={row}>
-              <span style={rowLabel}>{isWeddingBox ? "Digital Gallery" : "Digital Scans"}</span>
+              <span style={rowLabel}>{boxes.length > 1 ? `${boxes.length} × Digital Gallery` : "Digital Gallery"}</span>
+              <span style={rowValue}>{box.gallery > 0 ? fmt(box.gallery) : "Free"}</span>
+            </div>
+            {printsQty > 0 && (
+              <>
+                <div style={divider} />
+                <div style={row}>
+                  <span style={rowLabel}>{printsQty * boxes.length}× Wedding Prints</span>
+                  <span style={rowValue}>{fmt(box.prints)}</span>
+                </div>
+              </>
+            )}
+            {box.total > 0 && (
+              <>
+                <div style={divider} />
+                <div style={row}>
+                  <span style={{ ...rowLabel, fontWeight: 600 }}>Total</span>
+                  <span style={{ ...rowValue, fontWeight: 600 }}>{fmt(box.total)}</span>
+                </div>
+              </>
+            )}
+          </>
+        ) : isPrepaid ? (
+          <>
+            <div style={divider} />
+            <div style={row}>
+              <span style={rowLabel}>Digital Scans</span>
               <span style={rowValue}>Free</span>
             </div>
             {printsQty > 0 && (
@@ -146,41 +174,17 @@ export default function ConfirmStep({
                 <div style={divider} />
                 <div style={row}>
                   <span style={rowLabel}>{printsQty}× Prints</span>
-                  <span style={rowValue}>{fmt(printsQty * prepaidPrintsPrice)}</span>
+                  <span style={rowValue}>{fmt(printsQty * PREPAID_PRINTS_PRICE)}</span>
                 </div>
                 <div style={divider} />
                 <div style={row}>
                   <span style={{ ...rowLabel, fontWeight: 600 }}>Total</span>
                   <span style={{ ...rowValue, fontWeight: 600 }}>
-                    {fmt(printsQty * prepaidPrintsPrice)}
+                    {fmt(printsQty * PREPAID_PRINTS_PRICE)}
                   </span>
                 </div>
               </>
             )}
-          </>
-        ) : isWeddingBox ? (
-          <>
-            <div style={divider} />
-            <div style={row}>
-              <span style={rowLabel}>Digital Gallery</span>
-              <span style={rowValue}>{fmt(WB_GALLERY_PRICE)}</span>
-            </div>
-            {printsQty > 0 && (
-              <>
-                <div style={divider} />
-                <div style={row}>
-                  <span style={rowLabel}>{printsQty}× Wedding Prints</span>
-                  <span style={rowValue}>{fmt(printsQty * WB_PRINTS_PRICE)}</span>
-                </div>
-              </>
-            )}
-            <div style={divider} />
-            <div style={row}>
-              <span style={{ ...rowLabel, fontWeight: 600 }}>Total</span>
-              <span style={{ ...rowValue, fontWeight: 600 }}>
-                {fmt(WB_GALLERY_PRICE + printsQty * WB_PRINTS_PRICE)}
-              </span>
-            </div>
           </>
         ) : (
           <>

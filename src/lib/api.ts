@@ -183,7 +183,8 @@ export async function createCart(payload: {
   labelToken?: string;
   labelTracking?: string;
   discountCode?: string;
-  weddingBoxId?: string;
+  /** Wedding Boxes to develop, each with a camera from that box */
+  boxes?: { id: string; cid: string; prepaid: boolean; atLab: boolean }[];
   prepaid?: boolean;
   printsQty?: number;
   extraPrintsQty?: number;
