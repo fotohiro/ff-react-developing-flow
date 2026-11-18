@@ -6,11 +6,13 @@ interface Props {
   email: string;
   onChange: (email: string) => void;
   onNext: () => void;
+  /** True while the next step is being worked out; holds the button. */
+  busy?: boolean;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export default function EmailStep({ cid, email, onChange, onNext }: Props) {
+export default function EmailStep({ cid, email, onChange, onNext, busy = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [touched, setTouched] = useState(false);
 
@@ -24,7 +26,7 @@ export default function EmailStep({ cid, email, onChange, onNext }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isValid) onNext();
+    if (isValid && !busy) onNext();
   };
 
   return (
@@ -72,7 +74,7 @@ export default function EmailStep({ cid, email, onChange, onNext }: Props) {
       </div>
 
       {/* Continue */}
-      <Button type="submit" disabled={!isValid}>
+      <Button type="submit" disabled={!isValid || busy}>
         Continue
       </Button>
     </form>

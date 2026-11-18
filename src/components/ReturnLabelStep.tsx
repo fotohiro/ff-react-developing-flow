@@ -13,12 +13,14 @@ const US_STATES = [
   "DC","PR","VI","GU","AS","MP",
 ];
 
-type Phase = "select" | "upload" | "address" | "qr";
+type Phase = "select" | "upload" | "reminder" | "address" | "qr";
 
 interface Props {
   cid: string;
   email: string;
   weddingBoxId?: string | null;
+  /** Wedding Boxes in this checkout that are still with the customer; 0 when this is not a Wedding Box. */
+  boxesAtHome?: number;
   isPrepaid?: boolean;
   labelImg: string | null;
   labelSource: "camera" | "replacement" | null;
@@ -34,6 +36,7 @@ export default function ReturnLabelStep({
   cid,
   email,
   weddingBoxId,
+  boxesAtHome = 0,
   isPrepaid,
   labelImg,
   labelSource,
@@ -106,7 +109,8 @@ export default function ReturnLabelStep({
       return;
     }
     trackEvent("Chose Existing Label", email, { cid, email });
-    setPhase("upload");
+    // A Wedding Box label is not photographed: the lab matches the box by the label it arrives under.
+    setPhase(boxesAtHome > 0 ? "reminder" : "upload");
   };
 
   const chooseNeedLabel = () => {
@@ -187,7 +191,7 @@ export default function ReturnLabelStep({
 
         <div style={hintPill}>
           <span aria-hidden>💡</span>
-          <span style={hintText}>It's folded inside your return mailer</span>
+          <span style={hintText}>{boxesAtHome > 0 ? "Included inside your Wedding Box" : "It's folded inside your return mailer"}</span>
         </div>
 
         <p style={orText}>OR</p>
@@ -217,6 +221,27 @@ export default function ReturnLabelStep({
           setPhase("select");
         }}
       />
+    );
+  }
+
+  /* ── Wedding Box: label goes on the box, no photo ── */
+  if (phase === "reminder") {
+    const several = boxesAtHome > 1;
+    return (
+      <div style={container}>
+        <BackButton onClick={() => setPhase("select")} />
+        <h1 style={headline}>{several ? "Stick each return\nlabel on its box." : "Stick your return\nlabel on the box."}</h1>
+
+        <p style={{ ...bodyText, marginBottom: 24 }}>
+          {several
+            ? "Each Wedding Box has its own prepaid USPS return label inside. Place each one flat over the shipping label on the outside of its box, seal the boxes up, and drop them off with USPS."
+            : "Place the prepaid USPS return label from inside your Wedding Box flat over the shipping label on the outside of the box, seal it up, and drop it off with USPS."}
+        </p>
+
+        <div style={{ alignSelf: "center", width: "100%", display: "flex", justifyContent: "center" }}>
+          <Button onClick={onNext}>Continue</Button>
+        </div>
+      </div>
     );
   }
 
