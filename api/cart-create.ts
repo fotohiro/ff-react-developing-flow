@@ -1,12 +1,14 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { buyerCountryFor, isValidCid, marketEnv, resolveMarket, storeFor } from "./_markets.js";
-import { prepaidWeddingBoxLines } from "./_wedding-lines.js";
+import { cartBoxes, weddingBoxLines } from "./_wedding-lines.js";
 
 /**
  * POST /api/cart-create
  * Create a Shopify cart via Storefront API and return checkout URL
  *
- * Body: { format: "scans"|"prints", cid: string, email: string, market?: "us"|"my", labelUrl?: string, labelToken?: string, labelTracking?: string, weddingBoxId?: string }
+ * Body: { format: "scans"|"prints", cid: string, email: string, market?: "us"|"my", labelUrl?: string, labelToken?: string, labelTracking?: string,
+ *         boxes?: { id: string, cid: string, prepaid?: boolean, atLab?: boolean }[], weddingBoxId?: string }
+ * `boxes` lists the Wedding Boxes to develop; `weddingBoxId` (one box) is what older clients send.
  * Returns: { checkoutUrl: string, market: "us"|"my" }
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -14,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { format, cid, email, country, market: requestedMarket, labelUrl, labelToken, labelTracking, weddingBoxId, prepaid, printsQty, extraPrintsQty, discountCode } = req.body;
+  const { format, cid, email, country, market: requestedMarket, labelUrl, labelToken, labelTracking, prepaid, printsQty, extraPrintsQty, discountCode } = req.body;
   const market = resolveMarket(requestedMarket);
 
   // Validate the country so the checkout localizes to the same currency the
@@ -30,6 +32,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (!isValidCid(cid)) {
     return res.status(400).json({ error: "Invalid camera ID" });
+  }
+  const boxes = cartBoxes(req.body);
+  if (!boxes) {
+    return res.status(400).json({ error: "Invalid Wedding Box" });
   }
 
   const { domain: storeDomain, storefrontToken } = storeFor(market);
@@ -48,11 +54,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     !printsVariantId && "PRINTS_VARIANT_ID",
   ].filter(Boolean);
 
-  if (prepaid && weddingBoxId) {
-    if (!wbPrepaidRedeemVariantId) requiredEnv.push("WB_PREPAID_REDEEM_VARIANT_ID");
-    if (printsQty > 0 && !wbPrintsVariantId) requiredEnv.push("WB_PRINTS_VARIANT_ID");
-  } else if (weddingBoxId) {
-    if (!wbGalleryVariantId) requiredEnv.push("WB_SCANS_VARIANT_ID");
+  if (boxes.length > 0) {
+    if (boxes.some((b) => b.prepaid) && !wbPrepaidRedeemVariantId) requiredEnv.push("WB_PREPAID_REDEEM_VARIANT_ID");
+    if (boxes.some((b) => !b.prepaid) && !wbGalleryVariantId) requiredEnv.push("WB_SCANS_VARIANT_ID");
     if (printsQty > 0 && !wbPrintsVariantId) requiredEnv.push("WB_PRINTS_VARIANT_ID");
   } else if (prepaid) {
     if (!prepaidScansVariantId) requiredEnv.push("PREPAID_SCANS_VARIANT_ID");
@@ -89,9 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Build cart attributes, filtering out anything that would break Shopify
   const MAX_ATTR_VALUE_LENGTH = 500;
 
-  const rawAttributes = [
-    { key: "camera_id", value: cid },
-    ...(weddingBoxId ? [{ key: "wedding_box_id", value: weddingBoxId }] : []),
+  const rawLabelAttributes = [
     ...(labelToken
       ? [{ key: "_Return Label", value: labelToken }]
       : labelUrl
@@ -100,23 +102,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ...(labelTracking ? [{ key: "_Return Tracking", value: labelTracking }] : []),
   ];
 
-  const attributes = rawAttributes.filter((attr) => {
+  const labelAttributes = rawLabelAttributes.filter((attr) => {
     if (!attr.value) return false;                        // drop empty/falsy
     if (attr.value.startsWith("data:")) return false;     // safety: drop base64 data URLs (too large for Shopify)
     if (attr.value.length > MAX_ATTR_VALUE_LENGTH) return false; // safety: drop oversized values
     return true;
   });
+  // Single-camera lines. Wedding Box lines each carry their own box and camera (see weddingBoxLines).
+  const attributes = [{ key: "camera_id", value: cid }, ...labelAttributes];
 
-  // Build cart lines — wedding box orders have a base gallery + optional prints add-on
+  // Build cart lines — wedding box orders have a gallery line per box + optional prints add-on
   let lines;
-  if (prepaid && weddingBoxId && wbPrepaidRedeemVariantId) {
-    lines = prepaidWeddingBoxLines({
+  if (boxes.length > 0) {
+    lines = weddingBoxLines({
+      boxes,
+      galleryVariantId: wbGalleryVariantId,
       redeemVariantId: wbPrepaidRedeemVariantId,
       printsVariantId: wbPrintsVariantId,
       printsQty: printsQty || 0,
-      attributes,
-      cid,
-      weddingBoxId,
+      labelAttributes,
     });
   } else if (prepaid && prepaidScansVariantId) {
     // Prepaid redemption — $0 digital scans base + optional prints add-on
@@ -131,25 +135,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             merchandiseId: `gid://shopify/ProductVariant/${prepaidPrintsVariantId}`,
             quantity: printsQty,
             attributes: [{ key: "camera_id", value: cid }],
-          }]
-        : []),
-    ];
-  } else if (weddingBoxId && wbGalleryVariantId) {
-    const baseAttributes = attributes;
-    lines = [
-      {
-        merchandiseId: `gid://shopify/ProductVariant/${wbGalleryVariantId}`,
-        quantity: 1,
-        ...(baseAttributes.length > 0 ? { attributes: baseAttributes } : {}),
-      },
-      ...(printsQty > 0 && wbPrintsVariantId
-        ? [{
-            merchandiseId: `gid://shopify/ProductVariant/${wbPrintsVariantId}`,
-            quantity: printsQty,
-            attributes: [
-              { key: "camera_id", value: cid },
-              { key: "wedding_box_id", value: weddingBoxId },
-            ],
           }]
         : []),
     ];
@@ -181,7 +166,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const apiUrl = `https://${storeDomain}/api/2024-10/graphql.json`;
 
-    console.log(`[CART] Creating cart: market=${market}, format=${format}, cid=${cid}, attrs=${attributes.length}${weddingBoxId ? `, wb=${weddingBoxId}, prints=${printsQty || 0}` : ""}${prepaid ? `, prepaid=true, prints=${printsQty || 0}` : ""}${extraPrintsQty > 0 ? `, extraPrints=${extraPrintsQty}` : ""}, lines=${lines.length}`);
+    console.log(`[CART] Creating cart: market=${market}, format=${format}, cid=${cid}, labelAttrs=${labelAttributes.length}${boxes.length > 0 ? `, wb=${boxes.map((b) => `${b.id}${b.prepaid ? "(prepaid)" : ""}`).join("+")}, prints=${printsQty || 0}` : prepaid ? `, prepaid=true, prints=${printsQty || 0}` : ""}${extraPrintsQty > 0 ? `, extraPrints=${extraPrintsQty}` : ""}, lines=${lines.length}`);
 
     const response = await fetch(apiUrl, {
       method: "POST",
