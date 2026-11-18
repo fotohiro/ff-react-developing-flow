@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { boxTotals, chosenBoxes, linkBox, needsChoice, planBoxOffer, showsBoxStep, type Box, type BoxContext, type BoxOffer } from "../src/lib/boxes.ts";
+import { boxTotals, chosenBoxes, fetchBoxContext, linkBox, needsChoice, parseBoxContext, planBoxOffer, showsBoxStep, type Box, type BoxContext, type BoxOffer } from "../src/lib/boxes.ts";
 
 const A = "WB-20260413-015";
 const B = "WB-20260413-016";
@@ -96,4 +96,47 @@ test("totals: prepaid boxes are free to develop, prints are per box", () => {
   assert.deepEqual(boxTotals([box(A)], 0, prices), { payable: 1, gallery: 79.99, prints: 0, total: 79.99 });
   assert.deepEqual(boxTotals([box(A), box(B, { state: "prepaid" })], 1, prices), { payable: 1, gallery: 79.99, prints: 140, total: 219.99 });
   assert.deepEqual(boxTotals([box(A, { state: "prepaid" })], 0, prices), { payable: 0, gallery: 0, prints: 0, total: 0 });
+});
+
+test("an answer is used only when every part of it is what the checkout expects", () => {
+  const good = ok([box(A), box(B, { state: "prepaid", atLab: true, mixGroup: A })], true);
+  assert.deepEqual(parseBoxContext(good), good);
+  assert.deepEqual(parseBoxContext({ status: "stale", boxes: [] }), { status: "stale", emailMatch: false, boxes: [] });
+  // emailMatch is true only when the server says exactly that
+  assert.equal(parseBoxContext({ ...good, emailMatch: "yes" })?.emailMatch, false);
+  const bad: unknown[] = [
+    null,
+    "ok",
+    { status: "ok" },
+    { status: "fine", boxes: [] },
+    { status: "ok", boxes: [null] },
+    { status: "ok", boxes: [{ ...box(A), state: undefined }] },
+    { status: "ok", boxes: [{ ...box(A), state: "free" }] },
+    { status: "ok", boxes: [{ ...box(A), cid: 77031 }] },
+    { status: "ok", boxes: [{ ...box(A), atLab: "true" }] },
+    { status: "ok", boxes: [{ ...box(A), mixGroup: undefined }] },
+  ];
+  for (const data of bad) assert.equal(parseBoxContext(data), null);
+});
+
+test("a failed context request falls back to the link, and says why", async (t) => {
+  const warnings: string[] = [];
+  t.mock.method(console, "warn", (message: string) => warnings.push(message));
+  const answer = (fn: typeof fetch) => t.mock.method(globalThis, "fetch", fn);
+  const good = ok([box(A), box(B)], true);
+
+  answer(async () => Response.json(good));
+  assert.deepEqual(await fetchBoxContext("77031", A, "a@b.co"), good);
+  assert.equal(warnings.length, 0);
+
+  answer(async () => Response.json({ error: "Too many requests" }, { status: 429 }));
+  assert.equal(await fetchBoxContext("77031", A, "a@b.co"), null);
+  answer(async () => Response.json({ status: "ok", boxes: [null] }));
+  assert.equal(await fetchBoxContext("77031", A, "a@b.co"), null);
+  answer(async () => { throw new TypeError("Failed to fetch"); });
+  assert.equal(await fetchBoxContext("77031", A, "a@b.co"), null);
+  answer((_url, init) => new Promise((_resolve, reject) => init!.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")))));
+  assert.equal(await fetchBoxContext("77031", A, "a@b.co", 10), null);
+
+  assert.deepEqual(warnings.map((w) => w.match(/\((.*)\)/)?.[1]), ["HTTP 429", "unexpected response", "request failed", "no answer in 10 ms"]);
 });

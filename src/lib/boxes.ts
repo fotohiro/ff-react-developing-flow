@@ -39,10 +39,39 @@ export interface LinkHints {
 
 const CONTEXT_URL = "https://ff-photo-db.vercel.app/api/wedding-box-context";
 
-/** null on any failure or after `timeoutMs`; the checkout then behaves as it did before. */
+const STATUSES: readonly unknown[] = ["ok", "stale", "unknown"];
+const STATES: readonly unknown[] = ["payable", "prepaid", "paid"];
+
+/** The endpoint's answer as a BoxContext, or null when any part of it is not what the checkout expects. */
+export function parseBoxContext(data: unknown): BoxContext | null {
+  if (!data || typeof data !== "object") return null;
+  const { status, emailMatch, boxes } = data as Record<string, unknown>;
+  if (!STATUSES.includes(status) || !Array.isArray(boxes)) return null;
+  const wellFormed = boxes.every(
+    (b) =>
+      b &&
+      typeof b === "object" &&
+      typeof b.id === "string" &&
+      typeof b.cid === "string" &&
+      STATES.includes(b.state) &&
+      typeof b.atLab === "boolean" &&
+      (b.mixGroup === null || typeof b.mixGroup === "string")
+  );
+  if (!wellFormed) return null;
+  return { status: status as BoxContext["status"], emailMatch: emailMatch === true, boxes: boxes as Box[] };
+}
+
+/**
+ * null on any failure or after `timeoutMs`; the checkout then behaves as it did before. Each
+ * failure is logged, because a silent one looks exactly like a customer with a single box.
+ */
 export async function fetchBoxContext(cid: string, wbid: string, email: string, timeoutMs = 5000): Promise<BoxContext | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const fallBack = (why: string, detail?: unknown) => {
+    console.warn(`Wedding Box context unavailable (${why}); offering the one box from the link.`, ...(detail === undefined ? [] : [detail]));
+    return null;
+  };
   try {
     const res = await fetch(CONTEXT_URL, {
       method: "POST",
@@ -50,11 +79,10 @@ export async function fetchBoxContext(cid: string, wbid: string, email: string, 
       body: JSON.stringify({ cid, wbid, email }),
       signal: controller.signal,
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data && typeof data.status === "string" && Array.isArray(data.boxes) ? data : null;
-  } catch {
-    return null;
+    if (!res.ok) return fallBack(`HTTP ${res.status}`);
+    return parseBoxContext(await res.json()) ?? fallBack("unexpected response");
+  } catch (error) {
+    return fallBack(controller.signal.aborted ? `no answer in ${timeoutMs} ms` : "request failed", error);
   } finally {
     clearTimeout(timer);
   }
