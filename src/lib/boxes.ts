@@ -1,0 +1,109 @@
+/** Wedding Boxes that shipped together, and what the checkout offers for them. */
+
+export type BoxState = "payable" | "prepaid" | "paid";
+
+export interface Box {
+  id: string;
+  /** A camera from this box. The box's cart lines carry it. */
+  cid: string;
+  state: BoxState;
+  atLab: boolean;
+  /** Shared by boxes whose cameras came back mixed together; null otherwise. */
+  mixGroup: string | null;
+}
+
+/** Response of ff-photo-db POST /api/wedding-box-context. */
+export interface BoxContext {
+  status: "ok" | "stale" | "unknown";
+  emailMatch: boolean;
+  boxes: Box[];
+}
+
+export type BoxOffer =
+  /** No usable answer: one box, taken from the link, as before. */
+  | { kind: "link" }
+  /** The link no longer describes this camera: standard single-camera checkout. */
+  | { kind: "standard" }
+  /** Every box is paid for: nothing to check out. */
+  | { kind: "paid" }
+  /** `all` is every unpaid box; `base` is the least the customer can check out (empty when the scanned box is paid). */
+  | { kind: "boxes"; base: Box[]; all: Box[]; preselectAll: boolean };
+
+export type BoxChoice = "base" | "all";
+
+/** What the link itself says about the scanned box. */
+export interface LinkHints {
+  prepaid: boolean;
+  atLab: boolean;
+}
+
+const CONTEXT_URL = "https://ff-photo-db.vercel.app/api/wedding-box-context";
+
+/** null on any failure or after `timeoutMs`; the checkout then behaves as it did before. */
+export async function fetchBoxContext(cid: string, wbid: string, email: string, timeoutMs = 5000): Promise<BoxContext | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(CONTEXT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cid, wbid, email }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data && typeof data.status === "string" && Array.isArray(data.boxes) ? data : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** The scanned box as the link describes it, for when there is no context. */
+export function linkBox(wbid: string, cid: string, link: LinkHints): Box {
+  return { id: wbid, cid, state: link.prepaid ? "prepaid" : "payable", atLab: link.atLab, mixGroup: null };
+}
+
+export function planBoxOffer(context: BoxContext | null, wbid: string, link: LinkHints): BoxOffer {
+  if (!context || context.status === "unknown") return { kind: "link" };
+  if (context.status === "stale") return { kind: "standard" };
+  if (!context.boxes.some((b) => b.id === wbid)) return { kind: "link" };
+
+  // The link can know more than the context about the scanned box: never charge for a box the
+  // link calls prepaid, and never ask for a label on one it says is at the lab.
+  const boxes = context.boxes.map((b): Box =>
+    b.id !== wbid ? b : { ...b, state: b.state === "payable" && link.prepaid ? "prepaid" : b.state, atLab: b.atLab || link.atLab }
+  );
+  const all = boxes.filter((b) => b.state !== "paid");
+  if (all.length === 0) return { kind: "paid" };
+
+  const scanned = all.find((b) => b.id === wbid);
+  const base = !scanned ? [] : all.filter((b) => b === scanned || (scanned.mixGroup !== null && b.mixGroup === scanned.mixGroup));
+  return { kind: "boxes", base, all, preselectAll: context.emailMatch };
+}
+
+type Boxes = Extract<BoxOffer, { kind: "boxes" }>;
+
+/** True when the customer picks between `base` and `all`. */
+export function needsChoice(offer: Boxes): boolean {
+  return offer.base.length > 0 && offer.all.length > offer.base.length;
+}
+
+/** The box step appears when there is something to choose or explain; one unpaid box needs neither. */
+export function showsBoxStep(offer: BoxOffer): boolean {
+  return offer.kind === "boxes" && (needsChoice(offer) || offer.base.length !== 1);
+}
+
+/** The boxes going into the cart. Until the customer picks, the smaller set. */
+export function chosenBoxes(offer: Boxes, choice: BoxChoice | null): Box[] {
+  return !needsChoice(offer) || choice === "all" ? offer.all : offer.base;
+}
+
+/** Prints are per box: `printsQty` sets for every box in the cart. Prepaid boxes cost nothing to develop. */
+export function boxTotals(boxes: Box[], printsQty: number, prices: { wbGallery: number; wbPrints: number }) {
+  const payable = boxes.filter((b) => b.state !== "prepaid").length;
+  const gallery = payable * prices.wbGallery;
+  const prints = printsQty * boxes.length * prices.wbPrints;
+  return { payable, gallery, prints, total: gallery + prints };
+}
