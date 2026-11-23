@@ -17,6 +17,8 @@ import BoxStep from "./components/BoxStep";
 import PaidBoxStep from "./components/PaidBoxStep";
 import CameraIdStep from "./components/CameraIdStep";
 import MyReturnStep from "./components/MyReturnStep";
+import SupportStep from "./components/SupportStep";
+import { MARKET_PROFILES, supportChatUrl } from "./lib/markets";
 import type { FormatType } from "./components/FormatStep";
 
 export default function App() {
@@ -76,17 +78,16 @@ function DevelopingFlow({ cid }: { cid: string }) {
   const { wbid, prepaid, atLab, lt, discount, discountPct, email: emailParam, fmt } = useMemo(() => getParams(), []);
   const { prices, formatPrice, country, market, loading: pricingLoading, setMarket } = usePricing();
   const hasToken = !!lt;
+  const profile = MARKET_PROFILES[market];
   // Set when the customer taps "Returning in the US?": they'll post it back with the US label.
   const [returnInUS, setReturnInUS] = useState(false);
-  // Malaysia-store sessions return to the Malaysian lab. Other non-US visitors use the
+  const [showSupport, setShowSupport] = useState(false);
+  // Markets with their own lab use its return step. Other non-US visitors use the
   // SendCloud international return step instead of the US photo/EasyPost upload step;
   // US-store visitors in Malaysia are posting it back in the US (they can switch to MY).
-  const earlyReturnStep: StepName | null =
-    market === "my"
-      ? "myReturn"
-      : country !== "US" && country !== "MY" && !returnInUS
-        ? "intlReturn"
-        : null;
+  const earlyReturnStep: "intlReturn" | "myReturn" | null =
+    profile.returnStep ??
+    (country !== "US" && country !== "MY" && !returnInUS ? "intlReturn" : null);
 
   const skipEmail = !!emailParam && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailParam);
   const skipFormat = skipEmail && !!fmt;
@@ -169,6 +170,10 @@ function DevelopingFlow({ cid }: { cid: string }) {
     window.history.replaceState(null, "", url);
     setReturnInUS(next === "us");
     setMarket(next);
+    setLabelImg(null);
+    setLabelSource(null);
+    setLabelTracking(null);
+    setShowSupport(false);
     setStepIdx(0);
   };
 
@@ -314,7 +319,17 @@ function DevelopingFlow({ cid }: { cid: string }) {
           />
         );
       case "myReturn":
-        return <MyReturnStep cid={cid} onBack={goBack} />;
+        return (
+          <MyReturnStep
+            labelImg={labelImg}
+            labelTracking={labelTracking}
+            onCapture={handleCapture}
+            onLabelSourceChange={setLabelSource}
+            onTrackingChange={setLabelTracking}
+            onNext={handleUploadNext}
+            onBack={goBack}
+          />
+        );
       case "confirm":
         return (
           <ConfirmStep
@@ -372,11 +387,27 @@ function DevelopingFlow({ cid }: { cid: string }) {
       <ProgressBar total={steps.length} current={stepIdx} />
 
       {/* Step content with fade animation */}
-      <FadeIn stepKey={currentStep}>
-        <div style={content}>{renderStep()}</div>
+      <FadeIn stepKey={showSupport && profile.support ? "support" : currentStep}>
+        <div style={content}>
+          {showSupport && profile.support ? (
+            <SupportStep
+              labName={profile.support.name}
+              chatUrl={supportChatUrl(profile.support, cid, weddingBoxId)}
+              onBack={() => setShowSupport(false)}
+            />
+          ) : (
+            renderStep()
+          )}
+        </div>
       </FadeIn>
 
-      {switchTarget && currentStep !== "confirm" && (
+      {profile.support && !showSupport && (
+        <button type="button" style={supportLink} onClick={() => setShowSupport(true)}>
+          Need help? Message us on WhatsApp
+        </button>
+      )}
+
+      {switchTarget && currentStep !== "confirm" && !showSupport && (
         <button type="button" style={marketSwitch} onClick={() => switchMarket(switchTarget)}>
           {switchTarget === "us" ? "Returning in the US?" : "Returning in Malaysia?"}
         </button>
@@ -413,6 +444,19 @@ const content: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   paddingTop: 10,
+};
+
+const supportLink: React.CSSProperties = {
+  fontFamily: "var(--font-body)",
+  fontSize: 15,
+  color: "var(--color-text)",
+  textDecoration: "underline",
+  background: "none",
+  border: "none",
+  padding: "24px var(--page-padding) 0",
+  cursor: "pointer",
+  alignSelf: "center",
+  WebkitTapHighlightColor: "transparent",
 };
 
 const marketSwitch: React.CSSProperties = {
